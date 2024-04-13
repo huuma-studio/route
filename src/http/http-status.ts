@@ -1,7 +1,6 @@
 /*
  * Status code based on the rfc9110 specs: https://httpwg.org/specs/rfc9110.html#status.403
  */
-
 export enum HttpStatus {
   /*
    * Success Status

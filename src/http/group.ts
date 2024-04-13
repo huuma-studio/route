@@ -1,5 +1,5 @@
-import { Middleware } from "../middleware/mod.ts";
-import { Route } from "./mod.ts";
+import { Middleware } from "../middleware/middleware.ts";
+import { Route } from "./route.ts";
 
 export class RouteGroup {
   prefix: URLPattern;
@@ -24,7 +24,7 @@ export class RouteGroup {
       this.chain.push(middleware);
     }
     this.routes.forEach((toRoute) => {
-      this.prependMiddleware(toRoute);
+      this.#prependMiddleware(toRoute);
     });
     return this;
   }
@@ -32,27 +32,27 @@ export class RouteGroup {
   route(toRoute: Route | Route[]): RouteGroup {
     if (Array.isArray(toRoute)) {
       for (const route of toRoute) {
-        this.routes.push(this.prepare(route));
+        this.routes.push(this.#prepare(route));
       }
     } else {
-      this.routes.push(this.prepare(toRoute));
+      this.routes.push(this.#prepare(toRoute));
     }
     return this;
   }
 
-  private prepare(toRoute: Route): Route {
-    this.prefixRoute(toRoute);
-    this.prependMiddleware(toRoute);
+  #prepare(toRoute: Route): Route {
+    this.#prefixRoute(toRoute);
+    this.#prependMiddleware(toRoute);
     return toRoute;
   }
 
-  private prefixRoute(toRoute: Route): void {
+  #prefixRoute(toRoute: Route): void {
     toRoute.path = new URLPattern({
       pathname: `${this.prefix.pathname}${toRoute.path.pathname}`,
     });
   }
 
-  private prependMiddleware(toRoute: Route): void {
+  #prependMiddleware(toRoute: Route): void {
     toRoute.chain = [...this.chain, ...toRoute.chain];
   }
 }

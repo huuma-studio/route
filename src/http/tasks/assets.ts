@@ -1,6 +1,8 @@
+import { Cargo } from "../../cargo.ts";
 import { isProd } from "../../utils/environment.ts";
-import { extension, log, mimeTypeByExtension } from "../../utils/mod.ts";
-import { Get } from "../mod.ts";
+import { extension } from "../../utils/file.ts";
+import { log } from "../../utils/logger.ts";
+import { mimeTypeByExtension } from "../../utils/mime-types.ts";
 
 export type AssetsOptions = {
   enableStreams?: boolean;
@@ -8,10 +10,11 @@ export type AssetsOptions = {
 
 export function Assets(
   path: string,
+  app: Cargo,
   options?: AssetsOptions,
 ): () => Promise<void> {
   return async () => {
-    return await loadAssets(path, options);
+    return await loadAssets(path, app, options);
   };
 }
 
@@ -19,6 +22,7 @@ type LoadAssetsOptions = Pick<AssetsOptions, "enableStreams">;
 
 async function loadAssets(
   path: string,
+  app: Cargo,
   options?: LoadAssetsOptions,
 ): Promise<void> {
   try {
@@ -26,10 +30,11 @@ async function loadAssets(
       if (file.isDirectory || file.isSymlink) {
         await loadAssets(
           `${path}/${file.name}`,
+          app,
           options,
         );
       } else {
-        registerAssets(`${path}/${file.name}`, options?.enableStreams);
+        registerAssets(`${path}/${file.name}`, app, options?.enableStreams);
       }
     }
   } catch (_err: unknown) {
@@ -40,8 +45,12 @@ async function loadAssets(
   }
 }
 
-function registerAssets(path: string, streamResponse?: boolean): void {
-  Get(`/${path}`, async () => {
+function registerAssets(
+  path: string,
+  app: Cargo,
+  streamResponse?: boolean,
+): void {
+  app.get(`/${path}`, async () => {
     return new Response(
       streamResponse
         ? (await Deno.open(path)).readable

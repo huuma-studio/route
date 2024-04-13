@@ -15,9 +15,6 @@ export function extension(path: string) {
   return parse(path).ext.replace(".", "");
 }
 
-/* @deprecated */
-export function base(path: string): string {
+export function name(path: string): string {
   return parse(path).name;
 }
-
-export const name = base;

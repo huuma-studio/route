@@ -1,4 +1,5 @@
-import { Middleware } from "./middleware/mod.ts";
+import { Router } from "./http/router.ts";
+import { Middleware } from "./middleware/middleware.ts";
 
 export type ProtocolConnectionInfo = {
   remoteAddr: ProtocolRemoteAddress;
@@ -11,6 +12,10 @@ export type ProtocolRemoteAddress = {
 };
 
 export type Protocol = {
-  listen(port?: number): void;
+  handle(
+    request: Request,
+    connection: ProtocolConnectionInfo,
+  ): Promise<Response>;
   middleware(middleware: Middleware[] | Middleware): Protocol;
+  router(): Router;
 };

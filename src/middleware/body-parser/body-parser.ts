@@ -1,8 +1,6 @@
-import {
-  EntityTooLargeException,
-  RequestContext,
-  UnsupportedMediaTypeException,
-} from "../../http/mod.ts";
+import { EntityTooLargeException } from "../../http/exceptions/entity-too-large-exception.ts";
+import { UnsupportedMediaTypeException } from "../../http/exceptions/unsupported-media-type-exception.ts";
+import { type RequestContext } from "../../http/request.ts";
 import { Next } from "../middleware.ts";
 import { JSONParser } from "./json-parser.ts";
 
@@ -39,7 +37,7 @@ export function bodyParser(parserOptions?: Partial<BodyParserOptions>) {
         await readToMaxSize(ctx.request.body, options.maxBodySize),
       );
     }
-    return next(ctx);
+    return next();
   };
 }
 

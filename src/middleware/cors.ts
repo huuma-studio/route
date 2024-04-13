@@ -13,7 +13,7 @@ export function Cors(
 ): Middleware {
   return async (ctx: RequestContext, next: Next) => {
     const origin = ctx.request.headers.get("origin");
-    const resp = await next(ctx);
+    const resp = await next();
     if (origin && allowedCorsDomains?.includes(origin)) {
       resp.headers.set(
         "Access-Control-Allow-Origin",

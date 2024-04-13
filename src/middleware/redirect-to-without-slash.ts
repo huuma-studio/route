@@ -1,7 +1,7 @@
 import { RequestContext } from "../http/request.ts";
 import { Next } from "./middleware.ts";
 
-export async function redirectToWithoutSlash(
+export function redirectToWithoutSlash(
   ctx: RequestContext,
   next: Next,
 ) {
@@ -9,5 +9,5 @@ export async function redirectToWithoutSlash(
   if (url.pathname.at(-1) === "/" && url.pathname !== "/") {
     return Response.redirect(ctx.request.url.replace(/\/$/, ""));
   }
-  return await next(ctx);
+  return next();
 }

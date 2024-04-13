@@ -1,7 +1,5 @@
 {
   "imports": {
-    "std/": "https://deno.land/std@0.180.0/",
-    "inspect/": "../inspect/",
-    "assemble/": "https://deno.land/x/cargo_assemble@0.0.3/"
+    "std/": "https://deno.land/std@0.180.0/"
   }
 }

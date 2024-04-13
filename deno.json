@@ -1,5 +1,12 @@
 {
-  "importMap": "./.dev/import_map.json",
+  "name": "@cargo/cargo",
+  "version": "0.0.1",
+  "imports": {
+    "std/": "https://deno.land/std@0.180.0/"
+  },
+  "exports": {
+    ".": "./src/mod.ts"
+  },
   "tasks": {
     "check": "deno check src/**/*.ts && deno check inspect/**/*.ts"
   }

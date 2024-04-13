@@ -1,55 +1,48 @@
 import { walkthroughAndHandle } from "../middleware/middleware.ts";
+import { log } from "../utils/logger.ts";
+import { NotFoundException } from "./exceptions/not-found-exception.ts";
+import { HttpMethod } from "./http-method.ts";
+import { getUrlParams, Handler, method, RequestContext } from "./request.ts";
+import { Route } from "./route.ts";
 
-import {
-  getUrlParams,
-  Handler,
-  HttpMethod,
-  method,
-  NotFoundException,
-  RequestContext,
-  Route,
-} from "./mod.ts";
+export class Router {
+  #routes: Route[] = [];
 
-const routes: Route[] = [];
-
-function getRoutes() {
-  return routes;
-}
-
-function add(
-  toRoute: { path: string; method: HttpMethod; handler: Handler },
-): Route {
-  const route = new Route({
-    path: new URLPattern({ pathname: toRoute.path }),
-    method: toRoute.method,
-    handler: toRoute.handler,
-  });
-  routes.push(route);
-  return route;
-}
-
-function resolve(ctx: RequestContext): Promise<Response> {
-  const route = routes.find((route) => {
-    return (
-      route.path.test(ctx.request.url) && route.method === method(ctx.request)
-    );
-  });
-
-  if (!route) {
-    throw new NotFoundException(
-      `The resource under the path "${
-        new URL(ctx.request.url).pathname
-      }" was not found`,
+  list() {
+    this.#routes.forEach((route) =>
+      log("ROUTE", `${route.method} ${route.path.pathname}`)
     );
   }
 
-  ctx.params = getUrlParams(route, ctx.request);
+  add(
+    toRoute: { path: string; method: HttpMethod; handler: Handler },
+  ): Route {
+    const route = new Route({
+      path: new URLPattern({ pathname: toRoute.path }),
+      method: toRoute.method,
+      handler: toRoute.handler,
+    });
+    this.#routes.push(route);
+    return route;
+  }
 
-  return walkthroughAndHandle(ctx, route.chain, route.handler);
+  resolve = (ctx: RequestContext): Promise<Response> => {
+    const route = this.#routes.find((route) => {
+      return (
+        route.path.test(ctx.request.url) && route.method === method(ctx.request)
+      );
+    });
+
+    if (!route) {
+      throw new NotFoundException(
+        `The resource under the path "${
+          new URL(ctx.request.url).pathname
+        }" was not found`,
+      );
+    }
+
+    ctx.params = getUrlParams(route, ctx.request);
+
+    return walkthroughAndHandle(ctx, route.chain, route.handler);
+  };
 }
-
-export const Router = {
-  add,
-  resolve,
-  getRoutes,
-};

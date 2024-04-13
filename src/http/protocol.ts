@@ -1,19 +1,14 @@
-import { handleException, Router } from "./mod.ts";
-import { serve } from "std/http/server.ts";
-
-import { info, log } from "../utils/mod.ts";
 import {
-  addRawBodyToContext,
-  addSearchParamsToContext,
   bodyParser,
-  Middleware,
-  walkthroughAndHandle,
-} from "../middleware/mod.ts";
-import { BodyParserOptions } from "../middleware/body-parser/body-parser.ts";
+  BodyParserOptions,
+} from "../middleware/body-parser/body-parser.ts";
+import { Middleware, walkthroughAndHandle } from "../middleware/middleware.ts";
+import { Protocol, ProtocolConnectionInfo } from "../protocol.ts";
+import { addSearchParamsToContext } from "../middleware/add-search-params-to-context.ts";
+import { addRawBodyToContext } from "../middleware/add-raw-body-to-context.ts";
+import { Router } from "./router.ts";
+import { handleException } from "./exceptions/handle-exception.ts";
 
-import { type Protocol, type ProtocolConnectionInfo } from "../mod.ts";
-
-const LOG_CONTEXT = "PROTOCOL (HTTP)";
 const chain: Middleware[] = [];
 
 export interface HttpProtocolOptions {
@@ -23,35 +18,15 @@ export interface HttpProtocolOptions {
 }
 
 export class HttpProtocol implements Protocol {
-  #options?: HttpProtocolOptions;
+  #router: Router;
   constructor(options?: HttpProtocolOptions) {
-    this.#options = options;
     this.middleware([
       addSearchParamsToContext,
       options?.rawBody ? addRawBodyToContext : bodyParser(
         options?.bodyParserOptions && { ...options.bodyParserOptions },
       ),
     ]);
-  }
-
-  listen(port: number) {
-    logRegisteredRoutes();
-
-    if (!port) {
-      throw new Error("Http port not defined!");
-    }
-    if (this.#options?.legacyServe) {
-      info(LOG_CONTEXT, "Legacy server started");
-
-      serve(this.#handle, {
-        port: port,
-      });
-    } else {
-      Deno.serve({
-        port: port,
-      }, this.#handle);
-    }
-    log(LOG_CONTEXT, `Listening on http://localhost:${port}`);
+    this.#router = new Router();
   }
 
   middleware(middleware: Middleware | Middleware[]): HttpProtocol {
@@ -59,7 +34,11 @@ export class HttpProtocol implements Protocol {
     return this;
   }
 
-  async #handle(
+  router(): Router {
+    return this.#router;
+  }
+
+  async handle(
     request: Request,
     connection: ProtocolConnectionInfo,
   ): Promise<Response> {
@@ -70,16 +49,10 @@ export class HttpProtocol implements Protocol {
           connection,
         },
         chain,
-        Router.resolve,
+        this.#router.resolve,
       );
     } catch (error: unknown) {
       return handleException(error);
     }
   }
-}
-
-function logRegisteredRoutes() {
-  Router.getRoutes().forEach((route) => {
-    log("ROUTE", `${route.method} ${route.path.pathname}`);
-  });
 }

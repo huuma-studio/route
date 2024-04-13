@@ -1,14 +1,6 @@
-import { BaseSchema } from "inspect/schema.ts";
-import { Router } from "./router.ts";
-import { Handler, HttpMethod, RouteParams } from "./mod.ts";
-
-import { Middleware, validateBody } from "../middleware/mod.ts";
-import { validateSearch } from "../middleware/validate.ts";
-
-interface ValidationOptions {
-  body?: BaseSchema<unknown>;
-  search?: BaseSchema<unknown>;
-}
+import { HttpMethod } from "./http-method.ts";
+import { Handler, RouteParams } from "./request.ts";
+import { Middleware } from "../middleware/middleware.ts";
 
 export class Route {
   path: URLPattern;
@@ -32,70 +24,4 @@ export class Route {
     }
     return this;
   }
-
-  validate(options: ValidationOptions): Route {
-    if (options.body) {
-      this.middleware(validateBody(options.body));
-    }
-    if (options.search) {
-      this.middleware(validateSearch(options.search));
-    }
-    return this;
-  }
-}
-
-export function Head(path: string, handler: Handler) {
-  return Router.add({
-    path,
-    method: HttpMethod.HEAD,
-    handler,
-  });
-}
-
-export function Get(path: string, handler: Handler): Route {
-  return Router.add({
-    path,
-    method: HttpMethod.GET,
-    handler,
-  });
-}
-
-export function Post(path: string, handler: Handler): Route {
-  return Router.add({
-    path,
-    method: HttpMethod.POST,
-    handler,
-  });
-}
-
-export function Put(path: string, handler: Handler): Route {
-  return Router.add({
-    path,
-    method: HttpMethod.PUT,
-    handler,
-  });
-}
-
-export function Patch(path: string, handler: Handler): Route {
-  return Router.add({
-    path,
-    method: HttpMethod.PATCH,
-    handler,
-  });
-}
-
-export function Delete(path: string, handler: Handler): Route {
-  return Router.add({
-    path,
-    method: HttpMethod.DELETE,
-    handler,
-  });
-}
-
-export function Options(path: string, handler: Handler): Route {
-  return Router.add({
-    path,
-    method: HttpMethod.OPTIONS,
-    handler,
-  });
 }

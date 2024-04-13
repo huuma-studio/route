@@ -1,4 +1,4 @@
-import { HttpStatus } from "../mod.ts";
+import { HttpStatus } from "../http-status.ts";
 import { HttpException } from "./http-exception.ts";
 
 export class BadRequestException extends HttpException {
