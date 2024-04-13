@@ -7,6 +7,14 @@
   "exports": {
     ".": "./src/mod.ts"
   },
+  "publish": {
+    "exclude": [
+      ".git",
+      ".nova",
+      ".github"
+    ]
+  },
+  "lock": false,
   "tasks": {
     "check": "deno check src/**/*.ts"
   }
