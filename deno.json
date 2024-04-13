@@ -8,6 +8,6 @@
     ".": "./src/mod.ts"
   },
   "tasks": {
-    "check": "deno check src/**/*.ts && deno check inspect/**/*.ts"
+    "check": "deno check src/**/*.ts"
   }
 }
