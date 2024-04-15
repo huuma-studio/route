@@ -1,6 +1,10 @@
 import { HttpMethod } from "./http/http-method.ts";
 import { HttpProtocol, type HttpProtocolOptions } from "./http/protocol.ts";
-import type { Handler } from "./http/request.ts";
+import type {
+  ControllerConstructor,
+  ControllerProperty,
+  Handler,
+} from "./http/request.ts";
 import { type Route, RouteGroup } from "./http/route.ts";
 import type { Middleware } from "./middleware/middleware.ts";
 import type { Protocol, ProtocolConnectionInfo } from "./protocol.ts";
@@ -43,59 +47,136 @@ export class Cargo {
     return this;
   }
 
-  head(path: string, handler: Handler): Route {
+  head<T>(
+    path: string,
+    handlerType: ControllerConstructor<T>,
+    funcName: ControllerProperty<T>,
+  ): Route;
+  head<T>(path: string, handlerType: Handler): Route;
+  head<T>(
+    path: string,
+    handlerType: Handler | ControllerConstructor<T>,
+    funcName?: ControllerProperty<T>,
+  ): Route {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.HEAD,
-      handler,
+      handler: <ControllerProperty<T>> funcName ?? handlerType,
+      controller: <ControllerConstructor<T>> handlerType,
     });
   }
 
-  get(path: string, handler: Handler): Route {
+  get<T>(
+    path: string,
+    handlerType: ControllerConstructor<T>,
+    funcName: ControllerProperty<T>,
+  ): Route;
+  get<T>(path: string, handlerType: Handler): Route;
+  get<T>(
+    path: string,
+    handlerType: Handler | ControllerConstructor<T>,
+    funcName?: ControllerProperty<T>,
+  ): Route {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.GET,
-      handler,
+      handler: <ControllerProperty<T>> funcName ?? handlerType,
+      controller: <ControllerConstructor<T>> handlerType,
     });
   }
 
-  post(path: string, handler: Handler): Route {
+  post<T>(
+    path: string,
+    handlerType: ControllerConstructor<T>,
+    funcName: ControllerProperty<T>,
+  ): Route;
+  post<T>(path: string, handlerType: Handler): Route;
+  post<T>(
+    path: string,
+    handlerType: Handler | ControllerConstructor<T>,
+    funcName?: ControllerProperty<T>,
+  ): Route {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.POST,
-      handler,
+      handler: <ControllerProperty<T>> funcName ?? handlerType,
+      controller: <ControllerConstructor<T>> handlerType,
     });
   }
 
-  put(path: string, handler: Handler): Route {
+  put<T>(
+    path: string,
+    handlerType: ControllerConstructor<T>,
+    funcName: ControllerProperty<T>,
+  ): Route;
+  put<T>(path: string, handlerType: Handler): Route;
+  put<T>(
+    path: string,
+    handlerType: Handler | ControllerConstructor<T>,
+    funcName?: ControllerProperty<T>,
+  ): Route {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.PUT,
-      handler,
+      handler: <ControllerProperty<T>> funcName ?? handlerType,
+      controller: <ControllerConstructor<T>> handlerType,
     });
   }
 
-  patch(path: string, handler: Handler): Route {
+  patch<T>(
+    path: string,
+    handlerType: ControllerConstructor<T>,
+    funcName: ControllerProperty<T>,
+  ): Route;
+  patch<T>(path: string, handlerType: Handler): Route;
+  patch<T>(
+    path: string,
+    handlerType: Handler | ControllerConstructor<T>,
+    funcName?: ControllerProperty<T>,
+  ): Route {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.PATCH,
-      handler,
+      handler: <ControllerProperty<T>> funcName ?? handlerType,
+      controller: <ControllerConstructor<T>> handlerType,
     });
   }
 
-  delete(path: string, handler: Handler): Route {
+  delete<T>(
+    path: string,
+    handlerType: ControllerConstructor<T>,
+    funcName: ControllerProperty<T>,
+  ): Route;
+  delete<T>(path: string, handlerType: Handler): Route;
+  delete<T>(
+    path: string,
+    handlerType: Handler | ControllerConstructor<T>,
+    funcName?: ControllerProperty<T>,
+  ): Route {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.DELETE,
-      handler,
+      handler: <ControllerProperty<T>> funcName ?? handlerType,
+      controller: <ControllerConstructor<T>> handlerType,
     });
   }
 
-  options(path: string, handler: Handler): Route {
+  options<T>(
+    path: string,
+    handlerType: ControllerConstructor<T>,
+    funcName: ControllerProperty<T>,
+  ): Route;
+  options<T>(path: string, handlerType: Handler): Route;
+  options<T>(
+    path: string,
+    handlerType: Handler | ControllerConstructor<T>,
+    funcName?: ControllerProperty<T>,
+  ): Route {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.OPTIONS,
-      handler,
+      handler: <ControllerProperty<T>> funcName ?? handlerType,
+      controller: <ControllerConstructor<T>> handlerType,
     });
   }
 

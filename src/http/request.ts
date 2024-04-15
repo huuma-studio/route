@@ -4,6 +4,14 @@ import type { Route } from "./route.ts";
 
 export type Handler = (cxt: RequestContext) => Promise<Response> | Response;
 
+export interface ControllerConstructor<T> {
+  new (...args: unknown[]): T;
+}
+
+export type ControllerProperty<T> = {
+  [K in keyof T]: T[K] extends Handler ? K : never;
+}[keyof T];
+
 export type SearchParams = Record<string, string | string[] | undefined>;
 
 export type UrlParams = Record<string, string | undefined>;
