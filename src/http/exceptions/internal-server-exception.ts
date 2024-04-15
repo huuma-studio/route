@@ -5,6 +5,6 @@ export class InternalServerException extends HttpException {
   constructor(
     public message: string = "Internal Server Error",
   ) {
-    super(message, HttpStatus.INTERAL_ERROR);
+    super(message, HttpStatus.INTERNAL_ERROR);
   }
 }

@@ -9,7 +9,7 @@ interface ExceptionBody {
 
 export function handleException(exception: unknown): Response {
   let body: ExceptionBody = {
-    status: HttpStatus.INTERAL_ERROR,
+    status: HttpStatus.INTERNAL_ERROR,
     message: "Internal Server Error",
   };
   if (exception instanceof HttpException) {
