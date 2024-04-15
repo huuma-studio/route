@@ -1,9 +1,12 @@
 import {
   bodyParser,
-  BodyParserOptions,
+  type BodyParserOptions,
 } from "../middleware/body-parser/body-parser.ts";
-import { Middleware, walkthroughAndHandle } from "../middleware/middleware.ts";
-import { Protocol, ProtocolConnectionInfo } from "../protocol.ts";
+import {
+  type Middleware,
+  walkthroughAndHandle,
+} from "../middleware/middleware.ts";
+import type { Protocol, ProtocolConnectionInfo } from "../protocol.ts";
 import { addSearchParamsToContext } from "../middleware/add-search-params-to-context.ts";
 import { addRawBodyToContext } from "../middleware/add-raw-body-to-context.ts";
 import { Router } from "./router.ts";
@@ -19,6 +22,11 @@ export interface HttpProtocolOptions {
 
 export class HttpProtocol implements Protocol {
   #router: Router;
+
+  get router(): Router {
+    return this.#router;
+  }
+
   constructor(options?: HttpProtocolOptions) {
     this.middleware([
       addSearchParamsToContext,
@@ -32,10 +40,6 @@ export class HttpProtocol implements Protocol {
   middleware(middleware: Middleware | Middleware[]): HttpProtocol {
     chain.push(...Array.isArray(middleware) ? middleware : [middleware]);
     return this;
-  }
-
-  router(): Router {
-    return this.#router;
   }
 
   async handle(

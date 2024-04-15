@@ -1,7 +1,7 @@
 import { EntityTooLargeException } from "../../http/exceptions/entity-too-large-exception.ts";
 import { UnsupportedMediaTypeException } from "../../http/exceptions/unsupported-media-type-exception.ts";
-import { type RequestContext } from "../../http/request.ts";
-import { Next } from "../middleware.ts";
+import type { RequestContext } from "../../http/request.ts";
+import type { Middleware, Next } from "../middleware.ts";
 import { JSONParser } from "./json-parser.ts";
 
 export interface Parser<T> {
@@ -19,7 +19,9 @@ const defaultOptions: BodyParserOptions = {
   paser: [JSONParser],
 };
 
-export function bodyParser(parserOptions?: Partial<BodyParserOptions>) {
+export function bodyParser(
+  parserOptions?: Partial<BodyParserOptions>,
+): Middleware {
   const options = { ...defaultOptions, ...parserOptions };
   return async (ctx: RequestContext, next: Next) => {
     const contentType = ctx.request.headers.get("content-type")?.split(" ")[0]

@@ -1,6 +1,6 @@
-import { type ProtocolConnectionInfo } from "../protocol.ts";
-import { HttpMethod } from "./http-method.ts";
-import { Route } from "./route.ts";
+import type { ProtocolConnectionInfo } from "../protocol.ts";
+import type { HttpMethod } from "./http-method.ts";
+import type { Route } from "./route.ts";
 
 export type Handler = (cxt: RequestContext) => Promise<Response> | Response;
 

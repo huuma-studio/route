@@ -1,4 +1,4 @@
-import { assert } from "std/testing/asserts.ts";
+import { assert } from "@std/assert";
 import { isEnvironment, isProd } from "./environment.ts";
 
 Deno.test("idProd flag", async (t) => {

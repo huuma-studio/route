@@ -1,8 +1,13 @@
 import { walkthroughAndHandle } from "../middleware/middleware.ts";
 import { log } from "../utils/logger.ts";
 import { NotFoundException } from "./exceptions/not-found-exception.ts";
-import { HttpMethod } from "./http-method.ts";
-import { getUrlParams, Handler, method, RequestContext } from "./request.ts";
+import type { HttpMethod } from "./http-method.ts";
+import {
+  getUrlParams,
+  type Handler,
+  method,
+  type RequestContext,
+} from "./request.ts";
 import { Route } from "./route.ts";
 
 export class Router {

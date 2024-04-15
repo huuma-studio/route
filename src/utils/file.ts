@@ -1,17 +1,6 @@
-import { parse } from "std/path/mod.ts";
+import { parse } from "@std/path";
 
-export async function isDirectory(path: string): Promise<boolean> {
-  try {
-    if ((await Deno.lstat(path)).isDirectory) {
-      return true;
-    }
-    return false;
-  } catch {
-    return false;
-  }
-}
-
-export function extension(path: string) {
+export function extension(path: string): string {
   return parse(path).ext.replace(".", "");
 }
 

@@ -1,4 +1,4 @@
-import { Parser } from "./body-parser.ts";
+import type { Parser } from "./body-parser.ts";
 
 export const JSONParser: Parser<string> = {
   mimeType: "application/json",

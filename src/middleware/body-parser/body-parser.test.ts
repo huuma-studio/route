@@ -1,7 +1,8 @@
 import { EntityTooLargeException } from "../../http/exceptions/entity-too-large-exception.ts";
-import { RequestContext } from "../../http/request.ts";
+import type { RequestContext } from "../../http/request.ts";
 import { bodyParser } from "./body-parser.ts";
-import { assertEquals, assertRejects } from "std/testing/asserts.ts";
+import { assertEquals } from "@std/assert/assert-equals";
+import { assertRejects } from "@std/assert/assert-rejects";
 
 const requestOptions = {
   method: "POST",
@@ -37,7 +38,7 @@ Deno.test("Body Parser:", async (t) => {
         () => {
           return bodyParser({ maxBodySize: 2 })(ctx, () => {
             return Promise.resolve(new Response());
-          });
+          }) as Promise<Response>;
         },
         EntityTooLargeException,
       );
@@ -112,7 +113,7 @@ Deno.test("Body Parser:", async (t) => {
             }),
           } as any, () => {
             return Promise.resolve(new Response());
-          });
+          }) as Promise<Response>;
         },
         SyntaxError,
       );

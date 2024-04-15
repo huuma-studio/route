@@ -1,12 +1,11 @@
-import { RouteGroup } from "./http/group.ts";
 import { HttpMethod } from "./http/http-method.ts";
-import { HttpProtocol, HttpProtocolOptions } from "./http/protocol.ts";
-import { Handler } from "./http/request.ts";
-import { Route } from "./http/route.ts";
-import { Middleware } from "./middleware/middleware.ts";
-import { Protocol, type ProtocolConnectionInfo } from "./protocol.ts";
+import { HttpProtocol, type HttpProtocolOptions } from "./http/protocol.ts";
+import type { Handler } from "./http/request.ts";
+import { type Route, RouteGroup } from "./http/route.ts";
+import type { Middleware } from "./middleware/middleware.ts";
+import type { Protocol, ProtocolConnectionInfo } from "./protocol.ts";
 
-type CargoOptions = {
+export type CargoOptions = {
   protocol?: Protocol;
   protocolOptions?: HttpProtocolOptions;
 };
@@ -30,6 +29,11 @@ export class Cargo {
     return this.middleware(middleware);
   }
 
+  init(): this["handle"] {
+    this.#options.protocol.router.list();
+    return this.handle;
+  }
+
   chain(middleware: Middleware | Middleware[]): Cargo {
     return this.middleware(middleware);
   }
@@ -40,7 +44,7 @@ export class Cargo {
   }
 
   head(path: string, handler: Handler): Route {
-    return this.#options.protocol.router().add({
+    return this.#options.protocol.router.add({
       path,
       method: HttpMethod.HEAD,
       handler,
@@ -48,7 +52,7 @@ export class Cargo {
   }
 
   get(path: string, handler: Handler): Route {
-    return this.#options.protocol.router().add({
+    return this.#options.protocol.router.add({
       path,
       method: HttpMethod.GET,
       handler,
@@ -56,7 +60,7 @@ export class Cargo {
   }
 
   post(path: string, handler: Handler): Route {
-    return this.#options.protocol.router().add({
+    return this.#options.protocol.router.add({
       path,
       method: HttpMethod.POST,
       handler,
@@ -64,7 +68,7 @@ export class Cargo {
   }
 
   put(path: string, handler: Handler): Route {
-    return this.#options.protocol.router().add({
+    return this.#options.protocol.router.add({
       path,
       method: HttpMethod.PUT,
       handler,
@@ -72,7 +76,7 @@ export class Cargo {
   }
 
   patch(path: string, handler: Handler): Route {
-    return this.#options.protocol.router().add({
+    return this.#options.protocol.router.add({
       path,
       method: HttpMethod.PATCH,
       handler,
@@ -80,7 +84,7 @@ export class Cargo {
   }
 
   delete(path: string, handler: Handler): Route {
-    return this.#options.protocol.router().add({
+    return this.#options.protocol.router.add({
       path,
       method: HttpMethod.DELETE,
       handler,
@@ -88,7 +92,7 @@ export class Cargo {
   }
 
   options(path: string, handler: Handler): Route {
-    return this.#options.protocol.router().add({
+    return this.#options.protocol.router.add({
       path,
       method: HttpMethod.OPTIONS,
       handler,

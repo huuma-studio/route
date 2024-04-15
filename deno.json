@@ -1,11 +1,33 @@
 {
   "name": "@cargo/cargo",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "imports": {
-    "std/": "https://deno.land/std@0.180.0/"
+    "@std/assert": "jsr:@std/assert@^0.222.1",
+    "@std/path": "jsr:@std/path@^0.222.1"
   },
   "exports": {
-    ".": "./src/mod.ts"
+    ".": "./src/mod.ts",
+    "./protocol": "./src/protocol.ts",
+    "./http/http-method": "./src/http/http-method.ts",
+    "./http/http-status": "./src/http/http-status.ts",
+    "./http/protocol": "./src/http/protocol.ts",
+    "./http/request": "./src/http/request.ts",
+    "./http/route": "./src/http/route.ts",
+    "./http/router": "./src/http/router.ts",
+    "./http/tasks/assets": "./src/http/tasks/assets.ts",
+    "./http/tasks/favicon": "./src/http/tasks/favicon.ts",
+    "./middleware": "./src/middleware/middleware.ts",
+    "./middleware/add-raw-body-to-context": "./src/middleware/add-raw-body-to-context.ts",
+    "./middleware/add-search-params-to-context": "./src/middleware/add-search-params-to-context.ts",
+    "./middleware/cors": "./src/middleware/cors.ts",
+    "./middleware/log-time-to-response": "./src/middleware/log-time-to-response.ts",
+    "./middleware/redirect-to-without-slash": "./src/middleware/redirect-to-without-slash.ts",
+    "./middleware/body-parser": "./src/middleware/body-parser/body-parser.ts",
+    "./middleware/body-parser/json-parser": "./src/middleware/body-parser/json-parser.ts",
+    "./utils/environment": "./src/utils/environment.ts",
+    "./utils/file": "./src/utils/file.ts",
+    "./utils/logger": "./src/utils/logger.ts",
+    "./utils/mime-types": "./src/utils/mime-types.ts"
   },
   "publish": {
     "exclude": [

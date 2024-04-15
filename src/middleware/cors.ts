@@ -1,6 +1,6 @@
-import { HttpMethod } from "../http/http-method.ts";
-import { RequestContext } from "../http/request.ts";
-import { Middleware, Next } from "./middleware.ts";
+import type { HttpMethod } from "../http/http-method.ts";
+import type { RequestContext } from "../http/request.ts";
+import type { Middleware, Next } from "./middleware.ts";
 
 interface CorsOptions {
   allowedCorsDomains?: string[];

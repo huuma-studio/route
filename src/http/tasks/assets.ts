@@ -1,4 +1,4 @@
-import { Cargo } from "../../cargo.ts";
+import type { Cargo } from "../../cargo.ts";
 import { isProd } from "../../utils/environment.ts";
 import { extension } from "../../utils/file.ts";
 import { log } from "../../utils/logger.ts";

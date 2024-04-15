@@ -1,4 +1,4 @@
-import { assertEquals } from "std/testing/asserts.ts";
+import { assertEquals } from "@std/assert/assert-equals";
 
 import { extension, name } from "./file.ts";
 
