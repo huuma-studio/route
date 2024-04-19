@@ -41,12 +41,12 @@ export class RequestContext<
   T extends CargoContext = any,
 > {
   #request: Request;
-  get request() {
+  get request(): Request {
     return this.#request;
   }
 
   #connection: ProtocolConnectionInfo;
-  get connection() {
+  get connection(): ProtocolConnectionInfo {
     return this.#connection;
   }
 
