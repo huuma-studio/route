@@ -1,6 +1,6 @@
 {
   "name": "@cargo/cargo",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "imports": {
     "@std/assert": "jsr:@std/assert@^0.222.1",
     "@std/path": "jsr:@std/path@^0.222.1"
@@ -8,14 +8,14 @@
   "exports": {
     ".": "./src/mod.ts",
     "./protocol": "./src/protocol.ts",
-    "./http/expception/bad-request-exception": "./src/http/exceptions/bad-request-exception.ts",
-    "./http/expception/entity-too-large-exception": "./src/http/exceptions/entity-too-large-exception.ts",
-    "./http/expception/handle-exception.ts": "./src/http/exceptions/handle-exception.ts",
-    "./http/expception/http-exception.ts": "./src/http/exceptions/http-exception.ts",
-    "./http/expception/internal-server-exception.ts": "./src/http/exceptions/internal-server-exception.ts",
-    "./http/expception/not-found-exception.ts": "./src/http/exceptions/not-found-exception.ts",
-    "./http/expception/unauthorized-exception.ts": "./src/http/exceptions/unauthorized-exception.ts",
-    "./http/expception/unsupported-media-type-exception": "./src/http/exceptions/unsupported-media-type-exception.ts",
+    "./http/exception/bad-request-exception": "./src/http/exceptions/bad-request-exception.ts",
+    "./http/exception/entity-too-large-exception": "./src/http/exceptions/entity-too-large-exception.ts",
+    "./http/exception/handle-exception.ts": "./src/http/exceptions/handle-exception.ts",
+    "./http/exception/http-exception.ts": "./src/http/exceptions/http-exception.ts",
+    "./http/exception/internal-server-exception.ts": "./src/http/exceptions/internal-server-exception.ts",
+    "./http/exception/not-found-exception.ts": "./src/http/exceptions/not-found-exception.ts",
+    "./http/exception/unauthorized-exception.ts": "./src/http/exceptions/unauthorized-exception.ts",
+    "./http/exception/unsupported-media-type-exception": "./src/http/exceptions/unsupported-media-type-exception.ts",
     "./http/http-method": "./src/http/http-method.ts",
     "./http/http-status": "./src/http/http-status.ts",
     "./http/protocol": "./src/http/protocol.ts",
