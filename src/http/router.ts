@@ -1,3 +1,4 @@
+import type { CargoContext } from "../cargo.ts";
 import { walkthroughAndHandle } from "../middleware/middleware.ts";
 import { log } from "../utils/logger.ts";
 import { NotFoundException } from "./exceptions/not-found-exception.ts";
@@ -12,7 +13,7 @@ import {
 } from "./request.ts";
 import { Route } from "./route.ts";
 
-export class Router {
+export class Router<T extends CargoContext> {
   #routes: Route[] = [];
 
   list() {
@@ -20,38 +21,38 @@ export class Router {
       log("ROUTE", `${route.method} ${route.path.pathname}`)
     );
   }
-  add<T>(
+  add<P>(
     toRoute: {
       path: string;
       method: HttpMethod;
-      handler: Handler;
+      handler: Handler<T>;
     },
   ): Route;
-  add<T>(
+  add<P>(
     toRoute: {
       path: string;
       method: HttpMethod;
-      controller: ControllerConstructor<T>;
-      handler: Handler | ControllerProperty<T>;
+      controller: ControllerConstructor<P>;
+      handler: Handler<T> | ControllerProperty<P, T>;
     },
   ): Route;
-  add<T>(
+  add<P>(
     toRoute: {
       path: string;
       method: HttpMethod;
-      controller?: ControllerConstructor<T>;
-      handler: Handler | ControllerProperty<T>;
+      controller?: ControllerConstructor<P>;
+      handler: Handler<T> | ControllerProperty<P, T>;
     },
   ): Route {
-    let handler: Handler;
+    let handler: Handler<T>;
 
     if (typeof toRoute.handler === "function") {
       handler = toRoute.handler;
     } else {
-      handler = (ctx: RequestContext) => {
+      handler = (ctx: RequestContext<T>) => {
         if (toRoute.controller) {
           const controller = new toRoute.controller();
-          const func = controller[<ControllerProperty<T>> toRoute.handler];
+          const func = controller[<ControllerProperty<P, T>> toRoute.handler];
           if (typeof func === "function") {
             return func.bind(controller)(ctx);
           }

@@ -1,10 +1,11 @@
-import { Cargo } from "../../cargo.ts";
+import type { Cargo } from "../../cargo.ts";
 import { isProd } from "../../utils/environment.ts";
 
 /**
  * Task to load a favicon from the provided path
  * and register a route (/favicon.ico) to it.
  * @param {string} path - Path to the location of the favicon
+ * @param {Cargo} app - Cargo application to register the favicon
  */
 export function Favicon(path: string, app: Cargo) {
   app.get("/favicon.ico", async () => {

@@ -5,10 +5,10 @@ import type { Middleware } from "../middleware/middleware.ts";
 export class Route {
   path: URLPattern;
   method: HttpMethod;
-  handler: Handler;
+  handler: Handler<any>;
   chain: Middleware[] = [];
 
-  constructor({ path, method, handler }: RouteParams) {
+  constructor({ path, method, handler }: RouteParams<any>) {
     this.path = path;
     this.method = method;
     this.handler = handler;

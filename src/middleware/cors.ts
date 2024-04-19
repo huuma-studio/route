@@ -8,7 +8,7 @@ interface CorsOptions {
   allowedCorsMethods?: HttpMethod[];
 }
 
-export function Cors(
+export function Cors<T>(
   { allowedCorsDomains, allowedCorsHeaders, allowedCorsMethods }: CorsOptions,
 ): Middleware {
   return async (ctx: RequestContext, next: Next) => {

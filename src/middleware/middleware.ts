@@ -1,16 +1,17 @@
+import type { CargoContext } from "../cargo.ts";
 import type { Handler, RequestContext } from "../http/request.ts";
 
 export type Next = () => Promise<Response>;
 
-export type Middleware = (
-  cxt: RequestContext,
+export type Middleware<T extends CargoContext = any> = (
+  cxt: RequestContext<T>,
   next: Next,
 ) => Promise<Response> | Response;
 
-export function walkthroughAndHandle(
+export function walkthroughAndHandle<T extends CargoContext>(
   ctx: RequestContext,
-  chain: Middleware[],
-  handler: Handler,
+  chain: Middleware<T>[],
+  handler: Handler<T>,
 ): Promise<Response> {
   let i = 0;
 
