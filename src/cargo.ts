@@ -81,13 +81,13 @@ export class Cargo<T extends CargoContext = any> {
     path: string,
     handlerType: ControllerConstructor<P>,
     funcName: ControllerProperty<P, T>,
-  ): Route;
-  head<P>(path: string, handlerType: Handler<T>): Route;
+  ): Route<T>;
+  head<P>(path: string, handlerType: Handler<T>): Route<T>;
   head<P>(
     path: string,
     handlerType: Handler<T> | ControllerConstructor<P>,
     funcName?: ControllerProperty<P, T>,
-  ): Route {
+  ): Route<T> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.HEAD,
@@ -100,13 +100,13 @@ export class Cargo<T extends CargoContext = any> {
     path: string,
     handlerType: ControllerConstructor<P>,
     funcName: ControllerProperty<P, T>,
-  ): Route;
-  get<P>(path: string, handlerType: Handler<T>): Route;
+  ): Route<T>;
+  get<P>(path: string, handlerType: Handler<T>): Route<T>;
   get<P>(
     path: string,
     handlerType: Handler<T> | ControllerConstructor<P>,
     funcName?: ControllerProperty<P, T>,
-  ): Route {
+  ): Route<T> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.GET,
@@ -119,13 +119,13 @@ export class Cargo<T extends CargoContext = any> {
     path: string,
     handlerType: ControllerConstructor<P>,
     funcName: ControllerProperty<P, T>,
-  ): Route;
-  post<P>(path: string, handlerType: Handler<T>): Route;
+  ): Route<T>;
+  post<P>(path: string, handlerType: Handler<T>): Route<T>;
   post<P>(
     path: string,
     handlerType: Handler<T> | ControllerConstructor<P>,
     funcName?: ControllerProperty<P, T>,
-  ): Route {
+  ): Route<T> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.POST,
@@ -138,13 +138,13 @@ export class Cargo<T extends CargoContext = any> {
     path: string,
     handlerType: ControllerConstructor<P>,
     funcName: ControllerProperty<P, T>,
-  ): Route;
-  put<P>(path: string, handlerType: Handler<T>): Route;
+  ): Route<T>;
+  put<P>(path: string, handlerType: Handler<T>): Route<T>;
   put<P>(
     path: string,
     handlerType: Handler<T> | ControllerConstructor<P>,
     funcName?: ControllerProperty<P, T>,
-  ): Route {
+  ): Route<T> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.PUT,
@@ -157,13 +157,13 @@ export class Cargo<T extends CargoContext = any> {
     path: string,
     handlerType: ControllerConstructor<P>,
     funcName: ControllerProperty<P, T>,
-  ): Route;
-  patch<P>(path: string, handlerType: Handler<T>): Route;
+  ): Route<T>;
+  patch<P>(path: string, handlerType: Handler<T>): Route<T>;
   patch<P>(
     path: string,
     handlerType: Handler<T> | ControllerConstructor<P>,
     funcName?: ControllerProperty<P, T>,
-  ): Route {
+  ): Route<T> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.PATCH,
@@ -176,13 +176,13 @@ export class Cargo<T extends CargoContext = any> {
     path: string,
     handlerType: ControllerConstructor<P>,
     funcName: ControllerProperty<P, T>,
-  ): Route;
-  delete<P>(path: string, handlerType: Handler<T>): Route;
+  ): Route<T>;
+  delete<P>(path: string, handlerType: Handler<T>): Route<T>;
   delete<P>(
     path: string,
     handlerType: Handler<T> | ControllerConstructor<P>,
     funcName?: ControllerProperty<P, T>,
-  ): Route {
+  ): Route<T> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.DELETE,
@@ -195,13 +195,13 @@ export class Cargo<T extends CargoContext = any> {
     path: string,
     handlerType: ControllerConstructor<T>,
     funcName: ControllerProperty<P, T>,
-  ): Route;
-  options<P>(path: string, handlerType: Handler<T>): Route;
+  ): Route<T>;
+  options<P>(path: string, handlerType: Handler<T>): Route<T>;
   options<P>(
     path: string,
     handlerType: Handler<T> | ControllerConstructor<P>,
     funcName?: ControllerProperty<P, T>,
-  ): Route {
+  ): Route<T> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.OPTIONS,
@@ -210,7 +210,7 @@ export class Cargo<T extends CargoContext = any> {
     });
   }
 
-  group(path: string, routes: Route[]): RouteGroup {
+  group(path: string, routes: Route<T>[]): RouteGroup<T> {
     return new RouteGroup(path, routes);
   }
 }

@@ -105,8 +105,8 @@ export function getSearchParams(request: Request): SearchParams {
   return searchEntries;
 }
 
-export function getUrlParams(
-  route: Route,
+export function getUrlParams<T extends CargoContext>(
+  route: Route<T>,
   request: Request,
 ): UrlParams | undefined {
   return route.path.exec(request.url)?.pathname?.groups;

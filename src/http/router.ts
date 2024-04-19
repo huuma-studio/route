@@ -14,7 +14,7 @@ import {
 import { Route } from "./route.ts";
 
 export class Router<T extends CargoContext> {
-  #routes: Route[] = [];
+  #routes: Route<T>[] = [];
 
   list() {
     this.#routes.forEach((route) =>
@@ -27,7 +27,7 @@ export class Router<T extends CargoContext> {
       method: HttpMethod;
       handler: Handler<T>;
     },
-  ): Route;
+  ): Route<T>;
   add<P>(
     toRoute: {
       path: string;
@@ -35,7 +35,7 @@ export class Router<T extends CargoContext> {
       controller: ControllerConstructor<P>;
       handler: Handler<T> | ControllerProperty<P, T>;
     },
-  ): Route;
+  ): Route<T>;
   add<P>(
     toRoute: {
       path: string;
@@ -43,7 +43,7 @@ export class Router<T extends CargoContext> {
       controller?: ControllerConstructor<P>;
       handler: Handler<T> | ControllerProperty<P, T>;
     },
-  ): Route {
+  ): Route<T> {
     let handler: Handler<T>;
 
     if (typeof toRoute.handler === "function") {
