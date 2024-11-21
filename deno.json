@@ -1,6 +1,6 @@
 {
   "name": "@cargo/cargo",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "imports": {
     "@std/assert": "jsr:@std/assert@^0.222.1",
     "@std/path": "jsr:@std/path@^0.222.1"
@@ -38,11 +38,7 @@
     "./utils/mime-types": "./src/utils/mime-types.ts"
   },
   "publish": {
-    "exclude": [
-      ".git",
-      ".nova",
-      ".github"
-    ]
+    "exclude": [".git", ".nova", ".github", "**/*.test.ts"]
   },
   "lock": false,
   "tasks": {
