@@ -5,60 +5,46 @@ import { log } from "../../utils/logger.ts";
 import { mimeTypeByExtension } from "../../utils/mime-types.ts";
 
 export type AssetsOptions = {
-  enableStreams?: boolean;
+  enableResponseStreaming?: boolean;
 };
 
-export function Assets(
+export async function loadAssets(
   path: string,
-  app: Cargo,
+  cargo: Cargo,
   options?: AssetsOptions,
-): () => Promise<void> {
-  return async () => {
-    return await loadAssets(path, app, options);
-  };
-}
-
-type LoadAssetsOptions = Pick<AssetsOptions, "enableStreams">;
-
-async function loadAssets(
-  path: string,
-  app: Cargo,
-  options?: LoadAssetsOptions,
-): Promise<void> {
+): Promise<Cargo> {
   try {
     for await (const file of Deno.readDir(path)) {
       if (file.isDirectory || file.isSymlink) {
-        await loadAssets(
-          `${path}/${file.name}`,
-          app,
-          options,
-        );
+        await loadAssets(`${path}/${file.name}`, cargo, options);
       } else {
-        registerAssets(`${path}/${file.name}`, app, options?.enableStreams);
+        registerAssets(
+          `${path}/${file.name}`,
+          cargo,
+          options?.enableResponseStreaming,
+        );
       }
     }
   } catch (_err: unknown) {
-    log(
-      "HTTP CONTEXT",
-      `No routes from the '${path}' directory loaded!`,
-    );
+    log("HTTP CONTEXT", `No routes from the '${path}' directory loaded!`);
   }
+  return cargo;
 }
 
 function registerAssets(
   path: string,
-  app: Cargo,
+  cargo: Cargo,
   streamResponse?: boolean,
 ): void {
-  app.get(`/${path}`, async () => {
+  cargo.get(`/${path}`, async () => {
     return new Response(
       streamResponse
         ? (await Deno.open(path)).readable
         : await Deno.readFile(path),
       {
         headers: {
-          "Content-Type": mimeTypeByExtension(extension(path))?.type ||
-            "text/plain",
+          "Content-Type":
+            mimeTypeByExtension(extension(path))?.type || "text/plain",
           ...(isProd() ? { "Cache-Control": "max-age=3600" } : {}),
         },
       },

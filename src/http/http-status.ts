@@ -1,5 +1,5 @@
 /*
- * Status code based on the rfc9110 specs: https://httpwg.org/specs/rfc9110.html#status.403
+ * Status code based on the rfc9110 specs: https://httpwg.org/specs/rfc9110.html#status.codes
  */
 export enum HttpStatus {
   /*

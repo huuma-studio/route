@@ -22,7 +22,6 @@ const chain: Middleware[] = [];
 
 export interface HttpProtocolOptions {
   rawBody?: boolean;
-  legacyServe?: boolean;
   bodyParserOptions?: BodyParserOptions;
 }
 
@@ -40,21 +39,24 @@ export class HttpProtocol<T extends CargoContext> implements Protocol<T> {
   constructor(options?: HttpProtocolOptions) {
     this.middleware([
       addSearchParamsToContext,
-      options?.rawBody ? addRawBodyToContext : bodyParser(
-        options?.bodyParserOptions && { ...options.bodyParserOptions },
-      ),
+      options?.rawBody
+        ? addRawBodyToContext
+        : bodyParser(
+            options?.bodyParserOptions && { ...options.bodyParserOptions },
+          ),
     ]);
     this.#router = new Router();
   }
 
   on(
     hookName: HookType,
+    // deno-lint-ignore no-explicit-any
     listener: (...args: any[]) => Promise<void> | void,
   ): () => void {
     const hooksOfType = this.#hooks.get(hookName);
     Array.isArray(hooksOfType)
-      ? hooksOfType.push(<(...args: unknown[]) => void> listener)
-      : this.#hooks.set(hookName, [<(...args: unknown[]) => void> listener]);
+      ? hooksOfType.push(<(...args: unknown[]) => void>listener)
+      : this.#hooks.set(hookName, [<(...args: unknown[]) => void>listener]);
     return () => {
       const hooksOfType = this.#hooks.get(hookName);
       if (Array.isArray(hooksOfType)) {
@@ -80,7 +82,7 @@ export class HttpProtocol<T extends CargoContext> implements Protocol<T> {
   }
 
   middleware(middleware: Middleware<T> | Middleware<T>[]): HttpProtocol<T> {
-    chain.push(...Array.isArray(middleware) ? middleware : [middleware]);
+    chain.push(...(Array.isArray(middleware) ? middleware : [middleware]));
     return this;
   }
 
@@ -91,11 +93,7 @@ export class HttpProtocol<T extends CargoContext> implements Protocol<T> {
     const ctx = new RequestContext(request, connection);
 
     try {
-      const resp = await walkthroughAndHandle(
-        ctx,
-        chain,
-        this.#router.resolve,
-      );
+      const resp = await walkthroughAndHandle(ctx, chain, this.#router.resolve);
       this.hook(HookType.REQUEST_SUCCESS, ctx);
       return resp;
     } catch (error: unknown) {

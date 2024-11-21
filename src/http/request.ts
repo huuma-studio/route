@@ -19,6 +19,7 @@ export type SearchParams = Record<string, string | string[] | undefined>;
 
 export type UrlParams = Record<string, string | undefined>;
 
+// deno-lint-ignore no-empty-interface
 export interface ContextStateMap {}
 
 interface Get<T extends CargoContext> {
@@ -31,13 +32,11 @@ interface Set<T extends CargoContext> {
     key: Key,
     value: ContextStateMap[Key],
   ): void;
-  <Key extends keyof T["State"]>(
-    key: Key,
-    value: T["State"][Key],
-  ): void;
+  <Key extends keyof T["State"]>(key: Key, value: T["State"][Key]): void;
 }
 
 export class RequestContext<
+  // deno-lint-ignore no-explicit-any
   T extends CargoContext = any,
 > {
   #request: Request;
@@ -64,7 +63,7 @@ export class RequestContext<
 
   set: Set<T> = (key: string, value: unknown) => {
     this.#state ??= {};
-    this.#state[key as string] = value;
+    this.#state[key] = value;
   };
 
   get: Get<T> = (key: string) => {
@@ -87,19 +86,20 @@ export function path(request: Request): string {
 }
 
 export function method(request: Request): HttpMethod {
-  return <HttpMethod> request.method;
+  return <HttpMethod>request.method;
 }
 
 export function getSearchParams(request: Request): SearchParams {
   const searchParams = new URLSearchParams(new URL(request.url).search);
-  const searchEntries = <SearchParams> {};
+  const searchEntries = <SearchParams>{};
 
   for (const key of searchParams.keys()) {
     const searchParam = searchParams.getAll(key);
 
-    searchEntries[key] = searchParam.length <= 1
-      ? (searchEntries[key] = searchParam[0])
-      : (searchEntries[key] = searchParam);
+    searchEntries[key] =
+      searchParam.length <= 1
+        ? (searchEntries[key] = searchParam[0])
+        : (searchEntries[key] = searchParam);
   }
 
   return searchEntries;

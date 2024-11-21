@@ -3,6 +3,7 @@ import type { Handler, RequestContext } from "../http/request.ts";
 
 export type Next = () => Promise<Response>;
 
+// deno-lint-ignore no-explicit-any
 export type Middleware<T extends CargoContext = any> = (
   cxt: RequestContext<T>,
   next: Next,
@@ -15,17 +16,13 @@ export function walkthroughAndHandle<T extends CargoContext>(
 ): Promise<Response> {
   let i = 0;
 
-  function next(): Promise<Response> {
+  async function next(): Promise<Response> {
     const middleware = chain[i];
     if (typeof middleware === "function") {
       i++;
-      const result = middleware(ctx, next);
-      return result instanceof Promise ? result : Promise.resolve(result);
+      return await middleware(ctx, next);
     }
-    if (handler instanceof Promise) {
-      return handler(ctx) as Promise<Response>;
-    }
-    return Promise.resolve(handler(ctx));
+    return await handler(ctx);
   }
 
   return next();

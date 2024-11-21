@@ -28,7 +28,8 @@ export type Protocol<T extends CargoContext> = {
   router: Router<T>;
   on: (
     hookType: HookType,
+    // deno-lint-ignore no-explicit-any
     listener: (...args: any[]) => Promise<void> | void,
   ) => () => void;
-  hook(hooksName: HookType, ctx: unknown): void;
+  hook(hooksName: HookType, ctx: unknown): Promise<void> | void;
 };
