@@ -2,10 +2,7 @@ import {
   bodyParser,
   type BodyParserOptions,
 } from "../middleware/body-parser/body-parser.ts";
-import {
-  type Middleware,
-  walkthroughAndHandle,
-} from "../middleware/middleware.ts";
+import { handle, type Middleware } from "../middleware/middleware.ts";
 import {
   HookType,
   type Protocol,
@@ -16,7 +13,7 @@ import { addRawBodyToContext } from "../middleware/add-raw-body-to-context.ts";
 import { Router } from "./router.ts";
 import { handleException } from "./exceptions/handle-exception.ts";
 import { RequestContext } from "./request.ts";
-import type { CargoContext } from "../cargo.ts";
+import type { AppContext } from "../app.ts";
 
 const chain: Middleware[] = [];
 
@@ -25,7 +22,7 @@ export interface HttpProtocolOptions {
   bodyParserOptions?: BodyParserOptions;
 }
 
-export class HttpProtocol<T extends CargoContext> implements Protocol<T> {
+export class HttpProtocol<T extends AppContext> implements Protocol<T> {
   #router: Router<T>;
   #hooks = new Map<
     HookType,
@@ -39,11 +36,9 @@ export class HttpProtocol<T extends CargoContext> implements Protocol<T> {
   constructor(options?: HttpProtocolOptions) {
     this.middleware([
       addSearchParamsToContext,
-      options?.rawBody
-        ? addRawBodyToContext
-        : bodyParser(
-            options?.bodyParserOptions && { ...options.bodyParserOptions },
-          ),
+      options?.rawBody ? addRawBodyToContext : bodyParser(
+        options?.bodyParserOptions && { ...options.bodyParserOptions },
+      ),
     ]);
     this.#router = new Router();
   }
@@ -55,8 +50,8 @@ export class HttpProtocol<T extends CargoContext> implements Protocol<T> {
   ): () => void {
     const hooksOfType = this.#hooks.get(hookName);
     Array.isArray(hooksOfType)
-      ? hooksOfType.push(<(...args: unknown[]) => void>listener)
-      : this.#hooks.set(hookName, [<(...args: unknown[]) => void>listener]);
+      ? hooksOfType.push(<(...args: unknown[]) => void> listener)
+      : this.#hooks.set(hookName, [<(...args: unknown[]) => void> listener]);
     return () => {
       const hooksOfType = this.#hooks.get(hookName);
       if (Array.isArray(hooksOfType)) {
@@ -93,7 +88,7 @@ export class HttpProtocol<T extends CargoContext> implements Protocol<T> {
     const ctx = new RequestContext(request, connection);
 
     try {
-      const resp = await walkthroughAndHandle(ctx, chain, this.#router.resolve);
+      const resp = await handle(ctx, chain, this.#router.resolve);
       this.hook(HookType.REQUEST_SUCCESS, ctx);
       return resp;
     } catch (error: unknown) {

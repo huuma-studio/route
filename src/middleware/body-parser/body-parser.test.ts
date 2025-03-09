@@ -1,8 +1,8 @@
 import { EntityTooLargeException } from "../../http/exceptions/entity-too-large-exception.ts";
 import type { RequestContext } from "../../http/request.ts";
 import { bodyParser } from "./body-parser.ts";
-import { assertEquals } from "@std/assert/assert-equals";
-import { assertRejects } from "@std/assert/assert-rejects";
+import { assertEquals } from "@std/assert";
+import { assertRejects } from "@std/assert";
 
 const requestOptions = {
   method: "POST",
@@ -14,7 +14,7 @@ const requestOptions = {
 Deno.test("Body Parser:", async (t) => {
   await t.step("parse if body size not exceeds the max size", async () => {
     const ctx = <RequestContext> {
-      request: new Request("https://cargo.wtf", {
+      request: new Request("https://huuma.studio", {
         ...requestOptions,
         body: '"a"',
       }),
@@ -29,7 +29,7 @@ Deno.test("Body Parser:", async (t) => {
     'reject if body exceededs max size with "EntityTooLargeException"',
     () => {
       const ctx = <RequestContext> {
-        request: new Request("https://cargo.wtf", {
+        request: new Request("https://huuma.studio", {
           ...requestOptions,
           body: '"a"',
         }),
@@ -49,7 +49,7 @@ Deno.test("Body Parser:", async (t) => {
     "handle undefined body",
     () => {
       const ctx = <RequestContext> {
-        request: new Request("https://cargo.wtf", {
+        request: new Request("https://huuma.studio", {
           ...requestOptions,
         }),
       };
@@ -69,7 +69,7 @@ Deno.test("Body Parser:", async (t) => {
     const jsonAsString = JSON.stringify(json);
 
     const ctx = <RequestContext> {
-      request: new Request("https://cargo.wtf", {
+      request: new Request("https://huuma.studio", {
         ...requestOptions,
         body: jsonAsString,
       }),
@@ -86,7 +86,7 @@ Deno.test("Body Parser:", async (t) => {
     const jsonAsString = JSON.stringify(json);
 
     const ctx = <RequestContext> {
-      request: new Request("https://cargo.wtf", {
+      request: new Request("https://huuma.studio", {
         ...requestOptions,
         body: jsonAsString,
       }),
@@ -107,7 +107,7 @@ Deno.test("Body Parser:", async (t) => {
       assertRejects(
         () => {
           return bodyParser()({
-            request: new Request("https://cargo.wtf", {
+            request: new Request("https://huuma.studio", {
               ...requestOptions,
               body: json,
             }),

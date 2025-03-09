@@ -1,9 +1,9 @@
 import type { HttpMethod } from "./http-method.ts";
 import type { Handler, RouteParams } from "./request.ts";
 import type { Middleware } from "../middleware/middleware.ts";
-import type { CargoContext } from "../cargo.ts";
+import type { AppContext } from "../app.ts";
 
-export class Route<T extends CargoContext> {
+export class Route<T extends AppContext> {
   path: URLPattern;
   method: HttpMethod;
   handler: Handler<T>;
@@ -31,7 +31,7 @@ export class Route<T extends CargoContext> {
   }
 }
 
-export class RouteGroup<T extends CargoContext> {
+export class RouteGroup<T extends AppContext> {
   prefix: URLPattern;
   chain: Middleware[] = [];
   routes: Route<T>[] = [];

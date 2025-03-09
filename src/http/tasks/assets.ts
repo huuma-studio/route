@@ -1,4 +1,4 @@
-import type { Cargo } from "../../cargo.ts";
+import type { App } from "../../app.ts";
 import { isProd } from "../../utils/environment.ts";
 import { extension } from "../../utils/file.ts";
 import { log } from "../../utils/logger.ts";
@@ -10,17 +10,17 @@ export type AssetsOptions = {
 
 export async function loadAssets(
   path: string,
-  cargo: Cargo,
+  app: App,
   options?: AssetsOptions,
-): Promise<Cargo> {
+): Promise<App> {
   try {
     for await (const file of Deno.readDir(path)) {
       if (file.isDirectory || file.isSymlink) {
-        await loadAssets(`${path}/${file.name}`, cargo, options);
+        await loadAssets(`${path}/${file.name}`, app, options);
       } else {
         registerAssets(
           `${path}/${file.name}`,
-          cargo,
+          app,
           options?.enableResponseStreaming,
         );
       }
@@ -28,23 +28,23 @@ export async function loadAssets(
   } catch (_err: unknown) {
     log("HTTP CONTEXT", `No routes from the '${path}' directory loaded!`);
   }
-  return cargo;
+  return app;
 }
 
 function registerAssets(
   path: string,
-  cargo: Cargo,
+  app: App,
   streamResponse?: boolean,
 ): void {
-  cargo.get(`/${path}`, async () => {
+  app.get(`/${path}`, async () => {
     return new Response(
       streamResponse
         ? (await Deno.open(path)).readable
         : await Deno.readFile(path),
       {
         headers: {
-          "Content-Type":
-            mimeTypeByExtension(extension(path))?.type || "text/plain",
+          "Content-Type": mimeTypeByExtension(extension(path))?.type ||
+            "text/plain",
           ...(isProd() ? { "Cache-Control": "max-age=3600" } : {}),
         },
       },

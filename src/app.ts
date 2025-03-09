@@ -15,19 +15,19 @@ import {
 } from "./protocol.ts";
 
 export type State = Record<string, unknown>;
-export type CargoContext = {
+export type AppContext = {
   State?: State;
 };
 
-export type CargoOptions<T extends CargoContext> = {
+export type AppOptions<T extends AppContext> = {
   protocol?: Protocol<T>;
   protocolOptions?: HttpProtocolOptions;
 };
 
 // deno-lint-ignore no-explicit-any
-export class Cargo<T extends CargoContext = any> {
-  #options: Required<Pick<CargoOptions<T>, "protocol">>;
-  constructor(options?: CargoOptions<T>) {
+export class App<T extends AppContext = any> {
+  #options: Required<Pick<AppOptions<T>, "protocol">>;
+  constructor(options?: AppOptions<T>) {
     this.#options = {
       protocol: options?.protocol ?? new HttpProtocol(options?.protocolOptions),
     };
@@ -42,7 +42,7 @@ export class Cargo<T extends CargoContext = any> {
 
   on(
     hookName: HookType.APPLICATION_INIT,
-    listener: (app: Cargo<T>) => Promise<void> | void,
+    listener: (app: App<T>) => Promise<void> | void,
   ): () => void;
   on(
     hookName: HookType.REQUEST_SUCCESS,
@@ -70,12 +70,12 @@ export class Cargo<T extends CargoContext = any> {
     return this.handle;
   }
 
-  middleware(middleware: Middleware<T> | Middleware<T>[]): Cargo<T> {
+  middleware(middleware: Middleware<T> | Middleware<T>[]): App<T> {
     this.#options.protocol.middleware(middleware);
     return this;
   }
 
-  use(middleware: Middleware<T> | Middleware<T>[]): Cargo<T> {
+  use(middleware: Middleware<T> | Middleware<T>[]): App<T> {
     return this.middleware(middleware);
   }
 
@@ -93,8 +93,8 @@ export class Cargo<T extends CargoContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.HEAD,
-      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
-      controller: <ControllerConstructor<P>>handlerType,
+      handler: <ControllerProperty<P, T>> funcName ?? handlerType,
+      controller: <ControllerConstructor<P>> handlerType,
     });
   }
 
@@ -112,8 +112,8 @@ export class Cargo<T extends CargoContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.GET,
-      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
-      controller: <ControllerConstructor<P>>handlerType,
+      handler: <ControllerProperty<P, T>> funcName ?? handlerType,
+      controller: <ControllerConstructor<P>> handlerType,
     });
   }
 
@@ -131,8 +131,8 @@ export class Cargo<T extends CargoContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.POST,
-      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
-      controller: <ControllerConstructor<P>>handlerType,
+      handler: <ControllerProperty<P, T>> funcName ?? handlerType,
+      controller: <ControllerConstructor<P>> handlerType,
     });
   }
 
@@ -150,8 +150,8 @@ export class Cargo<T extends CargoContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.PUT,
-      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
-      controller: <ControllerConstructor<P>>handlerType,
+      handler: <ControllerProperty<P, T>> funcName ?? handlerType,
+      controller: <ControllerConstructor<P>> handlerType,
     });
   }
 
@@ -169,8 +169,8 @@ export class Cargo<T extends CargoContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.PATCH,
-      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
-      controller: <ControllerConstructor<P>>handlerType,
+      handler: <ControllerProperty<P, T>> funcName ?? handlerType,
+      controller: <ControllerConstructor<P>> handlerType,
     });
   }
 
@@ -188,8 +188,8 @@ export class Cargo<T extends CargoContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.DELETE,
-      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
-      controller: <ControllerConstructor<P>>handlerType,
+      handler: <ControllerProperty<P, T>> funcName ?? handlerType,
+      controller: <ControllerConstructor<P>> handlerType,
     });
   }
 
@@ -207,8 +207,8 @@ export class Cargo<T extends CargoContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.OPTIONS,
-      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
-      controller: <ControllerConstructor<P>>handlerType,
+      handler: <ControllerProperty<P, T>> funcName ?? handlerType,
+      controller: <ControllerConstructor<P>> handlerType,
     });
   }
 

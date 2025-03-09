@@ -1,4 +1,4 @@
-import type { CargoContext } from "./cargo.ts";
+import type { AppContext } from "./app.ts";
 import type { Router } from "./http/router.ts";
 import type { Middleware } from "./middleware/middleware.ts";
 
@@ -19,7 +19,7 @@ export enum HookType {
   REQUEST_FINALLY = "request:finally",
 }
 
-export type Protocol<T extends CargoContext> = {
+export type Protocol<T extends AppContext> = {
   handle(
     request: Request,
     connection: ProtocolConnectionInfo,

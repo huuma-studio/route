@@ -1,15 +1,15 @@
-import type { CargoContext } from "../cargo.ts";
+import type { AppContext } from "../app.ts";
 import type { Handler, RequestContext } from "../http/request.ts";
 
 export type Next = () => Promise<Response>;
 
 // deno-lint-ignore no-explicit-any
-export type Middleware<T extends CargoContext = any> = (
+export type Middleware<T extends AppContext = any> = (
   cxt: RequestContext<T>,
   next: Next,
 ) => Promise<Response> | Response;
 
-export function walkthroughAndHandle<T extends CargoContext>(
+export function handle<T extends AppContext>(
   ctx: RequestContext,
   chain: Middleware<T>[],
   handler: Handler<T>,

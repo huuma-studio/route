@@ -1,13 +1,13 @@
-import type { Cargo } from "../../cargo.ts";
+import type { App } from "../../app.ts";
 import { isProd } from "../../utils/environment.ts";
 
 /**
  * Task to load a favicon from the provided path
  * and register a route (/favicon.ico) to it.
  * @param {string} path - Path to the location of the favicon
- * @param {Cargo} app - Cargo application to register the favicon
+ * @param {App} app - Huuma/Route application to register the favicon
  */
-export function Favicon(path: string, app: Cargo) {
+export function Favicon(path: string, app: App) {
   app.get("/favicon.ico", async () => {
     try {
       const file = await Deno.open(path);

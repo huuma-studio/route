@@ -1,9 +1,9 @@
-import type { CargoContext } from "../cargo.ts";
+import type { AppContext } from "../app.ts";
 import type { ProtocolConnectionInfo } from "../protocol.ts";
 import type { HttpMethod } from "./http-method.ts";
 import type { Route } from "./route.ts";
 
-export type Handler<T extends CargoContext> = (
+export type Handler<T extends AppContext> = (
   cxt: RequestContext<T>,
 ) => Promise<Response> | Response;
 
@@ -11,7 +11,7 @@ export interface ControllerConstructor<T> {
   new (...args: unknown[]): T;
 }
 
-export type ControllerProperty<T, C extends CargoContext> = {
+export type ControllerProperty<T, C extends AppContext> = {
   [K in keyof T]: T[K] extends Handler<C> ? K : never;
 }[keyof T];
 
@@ -22,12 +22,12 @@ export type UrlParams = Record<string, string | undefined>;
 // deno-lint-ignore no-empty-interface
 export interface ContextStateMap {}
 
-interface Get<T extends CargoContext> {
+interface Get<T extends AppContext> {
   <Key extends keyof ContextStateMap>(key: Key): ContextStateMap[Key];
   <Key extends keyof T["State"]>(key: Key): T["State"][Key];
 }
 
-interface Set<T extends CargoContext> {
+interface Set<T extends AppContext> {
   <Key extends keyof ContextStateMap>(
     key: Key,
     value: ContextStateMap[Key],
@@ -37,7 +37,7 @@ interface Set<T extends CargoContext> {
 
 export class RequestContext<
   // deno-lint-ignore no-explicit-any
-  T extends CargoContext = any,
+  T extends AppContext = any,
 > {
   #request: Request;
   get request(): Request {
@@ -75,7 +75,7 @@ export class RequestContext<
   }
 }
 
-export interface RouteParams<T extends CargoContext> {
+export interface RouteParams<T extends AppContext> {
   path: URLPattern;
   method: HttpMethod;
   handler: Handler<T>;
@@ -86,26 +86,25 @@ export function path(request: Request): string {
 }
 
 export function method(request: Request): HttpMethod {
-  return <HttpMethod>request.method;
+  return <HttpMethod> request.method;
 }
 
 export function getSearchParams(request: Request): SearchParams {
   const searchParams = new URLSearchParams(new URL(request.url).search);
-  const searchEntries = <SearchParams>{};
+  const searchEntries = <SearchParams> {};
 
   for (const key of searchParams.keys()) {
     const searchParam = searchParams.getAll(key);
 
-    searchEntries[key] =
-      searchParam.length <= 1
-        ? (searchEntries[key] = searchParam[0])
-        : (searchEntries[key] = searchParam);
+    searchEntries[key] = searchParam.length <= 1
+      ? (searchEntries[key] = searchParam[0])
+      : (searchEntries[key] = searchParam);
   }
 
   return searchEntries;
 }
 
-export function getUrlParams<T extends CargoContext>(
+export function getUrlParams<T extends AppContext>(
   route: Route<T>,
   request: Request,
 ): UrlParams | undefined {

@@ -1,5 +1,5 @@
-import type { CargoContext } from "../cargo.ts";
-import { walkthroughAndHandle } from "../middleware/middleware.ts";
+import type { AppContext } from "../app.ts";
+import { handle } from "../middleware/middleware.ts";
 import { log } from "../utils/logger.ts";
 import { NotFoundException } from "./exceptions/not-found-exception.ts";
 import type { HttpMethod } from "./http-method.ts";
@@ -13,7 +13,7 @@ import {
 } from "./request.ts";
 import { Route } from "./route.ts";
 
-export class Router<T extends CargoContext> {
+export class Router<T extends AppContext> {
   #routes: Route<T>[] = [];
 
   list() {
@@ -89,6 +89,6 @@ export class Router<T extends CargoContext> {
 
     ctx.params = getUrlParams(route, ctx.request);
 
-    return walkthroughAndHandle(ctx, route.chain, route.handler);
+    return handle(ctx, route.chain, route.handler);
   };
 }
