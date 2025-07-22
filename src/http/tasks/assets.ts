@@ -37,7 +37,7 @@ function registerAssets(
   app: App,
   streamResponse?: boolean,
 ): void {
-  app.get(`/_huuma/static${parse(path).base}`, async () => {
+  app.get(`/_huuma/static/${parse(path).base}`, async () => {
     return new Response(
       streamResponse
         ? (await Deno.open(path)).readable
