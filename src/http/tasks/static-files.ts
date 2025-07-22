@@ -1,56 +1,82 @@
-import { parse } from "@std/path/parse";
 import type { App } from "../../app.ts";
 import { isProd } from "../../utils/environment.ts";
 import { extension } from "../../utils/file.ts";
 import { log } from "../../utils/logger.ts";
 import { mimeTypeByExtension } from "../../utils/mime-types.ts";
 
-export const STATIC_FILES_PATH = "/_huuma/static";
+const DEFAULT_DIRECTORY = "static";
 
 export type StaticFilesOptions = {
   enableResponseStreaming?: boolean;
+  directory?: string;
+  path?: string;
 };
 
 export async function loadStaticFiles(
-  path: string,
   app: App,
   options?: StaticFilesOptions,
 ): Promise<App> {
+  const directory = options?.directory ?? DEFAULT_DIRECTORY;
   try {
-    for await (const file of Deno.readDir(path)) {
+    for await (
+      const file of Deno.readDir(
+        filePath(directory, options?.path),
+      )
+    ) {
       if (file.isDirectory || file.isSymlink) {
-        await loadStaticFiles(`${path}/${file.name}`, app, options);
+        await loadStaticFiles(app, {
+          ...options,
+          directory,
+          path: options?.path ? `${options.path}/${file.name}` : file.name,
+        });
       } else {
         registerStaticFiles(
-          `${path}/${file.name}`,
           app,
-          options?.enableResponseStreaming,
+          {
+            directory,
+            path: options?.path ? `${options.path}/${file.name}` : file.name,
+          },
         );
       }
     }
   } catch (_err: unknown) {
-    log("HTTP CONTEXT", `No routes from the '${path}' directory loaded!`);
+    log(
+      "HTTP CONTEXT",
+      `No routes from the '${
+        filePath(directory, options?.path)
+      }' directory loaded!`,
+    );
   }
   return app;
 }
 
+interface RegisterStaticFileOptions {
+  enableResponseStreaming?: boolean;
+  directory: string;
+  path: string;
+}
+
 function registerStaticFiles(
-  path: string,
   app: App,
-  streamResponse?: boolean,
+  options: RegisterStaticFileOptions,
 ): void {
-  app.get(`${STATIC_FILES_PATH}/${parse(path).base}`, async () => {
+  const file = filePath(options.directory, options.path);
+  app.get(`/${options.path}`, async () => {
     return new Response(
-      streamResponse
-        ? (await Deno.open(path)).readable
-        : await Deno.readFile(path),
+      options.enableResponseStreaming
+        ? (await Deno.open(file)).readable
+        : await Deno.readFile(file),
       {
         headers: {
-          "Content-Type": mimeTypeByExtension(extension(path))?.type ||
+          "Content-Type": mimeTypeByExtension(extension(options.path))?.type ||
             "text/plain",
           ...(isProd() ? { "Cache-Control": "max-age=3600" } : {}),
         },
       },
     );
   });
+}
+
+function filePath(directory: string, path?: string): string {
+  return path ? `${directory}/${path}` : directory;
 }
