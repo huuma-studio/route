@@ -1,5 +1,6 @@
 .nova/*
 .idea/*
+.zed/*
 examples/parcel/*
 archive/*
 .DS_STORE

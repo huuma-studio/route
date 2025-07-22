@@ -1,3 +1,4 @@
+import { parse } from "@std/path/parse";
 import type { App } from "../../app.ts";
 import { isProd } from "../../utils/environment.ts";
 import { extension } from "../../utils/file.ts";
@@ -36,7 +37,7 @@ function registerAssets(
   app: App,
   streamResponse?: boolean,
 ): void {
-  app.get(`/${path}`, async () => {
+  app.get(`/_huuma/static${parse(path).base}`, async () => {
     return new Response(
       streamResponse
         ? (await Deno.open(path)).readable
