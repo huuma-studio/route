@@ -7,19 +7,19 @@ interface ExceptionBody {
   error?: string | string[];
 }
 
-export function handleException(exception: unknown): Response {
+export function handleException(error: unknown): Response {
   let body: ExceptionBody = {
     status: HttpStatus.INTERNAL_ERROR,
     message: "Internal Server Error",
   };
-  if (exception instanceof HttpException) {
+  if (error instanceof HttpException) {
     body = {
-      message: (<HttpException> exception).message,
-      status: (<HttpException> exception).status,
-      error: (<HttpException> exception).error,
+      message: error.message,
+      status: error.status,
+      error: error.error,
     };
   }
-  console.error(exception);
+  console.error(error);
 
   return Response.json(body, { status: body.status });
 }

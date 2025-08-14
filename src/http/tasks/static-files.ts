@@ -56,10 +56,10 @@ interface RegisterStaticFileOptions {
   path: string;
 }
 
-function registerStaticFiles(
+export function registerStaticFiles(
   app: App,
   options: RegisterStaticFileOptions,
-): void {
+): App {
   const file = filePath(options.directory, options.path);
   app.get(`/${options.path}`, async () => {
     return new Response(
@@ -75,6 +75,7 @@ function registerStaticFiles(
       },
     );
   });
+  return app;
 }
 
 function filePath(directory: string, path?: string): string {
