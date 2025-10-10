@@ -10,6 +10,7 @@ export type StaticFilesOptions = {
   enableResponseStreaming?: boolean;
   directory?: string;
   path?: string;
+  maxAge?: number;
 };
 
 export async function loadStaticFiles(
@@ -28,6 +29,7 @@ export async function loadStaticFiles(
           ...options,
           directory,
           path: options?.path ? `${options.path}/${file.name}` : file.name,
+          maxAge: options?.maxAge,
         });
       } else {
         registerStaticFiles(
@@ -35,6 +37,7 @@ export async function loadStaticFiles(
           {
             directory,
             path: options?.path ? `${options.path}/${file.name}` : file.name,
+            maxAge: options?.maxAge,
           },
         );
       }
@@ -54,6 +57,7 @@ interface RegisterStaticFileOptions {
   enableResponseStreaming?: boolean;
   directory: string;
   path: string;
+  maxAge?: number;
 }
 
 export function registerStaticFiles(
@@ -70,7 +74,9 @@ export function registerStaticFiles(
         headers: {
           "Content-Type": mimeTypeByExtension(extension(options.path))?.type ||
             "text/plain",
-          ...(isProd() ? { "Cache-Control": "max-age=3600" } : {}),
+          ...(isProd()
+            ? { "Cache-Control": `max-age=${options.maxAge ?? 3600}` }
+            : {}),
         },
       },
     );
