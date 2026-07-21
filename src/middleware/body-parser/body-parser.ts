@@ -12,11 +12,14 @@ export interface Parser<T> {
 export interface BodyParserOptions {
   maxBodySize: number;
   paser?: Parser<unknown>[];
+  /** Attach the raw request bytes to `ctx.rawContent` (Uint8Array). Default: false. */
+  keepRaw?: boolean;
 }
 
 const defaultOptions: BodyParserOptions = {
   maxBodySize: 1024,
   paser: [JSONParser],
+  keepRaw: false,
 };
 
 export function bodyParser(
@@ -31,7 +34,9 @@ export function bodyParser(
       ctx.request.body,
       options.maxBodySize,
     );
-    ctx.rawContent = buffer;
+    if (options.keepRaw) {
+      ctx.rawContent = buffer;
+    }
     const contentType = ctx.request.headers.get("content-type")?.split(" ")[0]
       ?.replace(";", "");
     if (contentType) {
