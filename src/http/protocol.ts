@@ -57,7 +57,18 @@ export class HttpProtocol<T extends AppContext> implements Protocol<T> {
 
   constructor(options?: HttpProtocolOptions) {
     this.middleware([addSearchParamsToContext]);
-    if (options?.useDefaultBodyParser) {
+    const hasDeprecatedOption = options?.rawBody !== undefined ||
+      options?.bodyParserOptions !== undefined;
+    if (hasDeprecatedOption && options?.useDefaultBodyParser !== true) {
+      throw new Error(
+        "`rawBody` and `bodyParserOptions` are deprecated and no longer take " +
+          "effect on their own. To keep the legacy default body-parser behavior, " +
+          "set `useDefaultBodyParser: true`. Prefer adding `bodyParser()` " +
+          "explicitly via `protocol.middleware(...)` or " +
+          "`route.use(bodyParser(...))` instead.",
+      );
+    }
+    if (options?.useDefaultBodyParser || hasDeprecatedOption) {
       this.middleware(
         options.rawBody
           ? addRawBodyToContext
