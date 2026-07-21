@@ -53,6 +53,7 @@ export class RequestContext<
 
   params?: UrlParams;
   body?: unknown;
+  rawContent?: Uint8Array;
   auth?: unknown;
   search?: SearchParams;
 

@@ -15,11 +15,32 @@ import { handleException } from "./exceptions/handle-exception.ts";
 import { RequestContext } from "./request.ts";
 import type { AppContext } from "../app.ts";
 
-const chain: Middleware[] = [];
-
 export interface HttpProtocolOptions {
+  /**
+   * @deprecated Body parsing is no longer part of the default protocol
+   * middleware. Opt back into the legacy behavior with `useDefaultBodyParser`.
+   * Prefer adding `bodyParser()` explicitly via `protocol.middleware(...)` or
+   * per-route `route.use(bodyParser(...))`. This option will be removed in a
+   * future release.
+   */
   rawBody?: boolean;
+
+  /**
+   * @deprecated Body parsing is no longer part of the default protocol
+   * middleware. Opt back into the legacy behavior with `useDefaultBodyParser`.
+   * Prefer adding `bodyParser()` explicitly via `protocol.middleware(...)` or
+   * per-route `route.use(bodyParser(...))`. This option will be removed in a
+   * future release.
+   */
   bodyParserOptions?: BodyParserOptions;
+
+  /**
+   * @deprecated Re-enables the legacy default body-parser middleware added by
+   * the protocol. Prefer adding `bodyParser()` (or `addRawBodyToContext`)
+   * explicitly to your middleware chain or routes. This option will be
+   * removed in a future release.
+   */
+  useDefaultBodyParser?: boolean;
 }
 
 export class HttpProtocol<T extends AppContext> implements Protocol<T> {
@@ -32,14 +53,30 @@ export class HttpProtocol<T extends AppContext> implements Protocol<T> {
   get router(): Router<T> {
     return this.#router;
   }
+  #chain: Middleware[] = [];
 
   constructor(options?: HttpProtocolOptions) {
-    this.middleware([
-      addSearchParamsToContext,
-      options?.rawBody ? addRawBodyToContext : bodyParser(
-        options?.bodyParserOptions && { ...options.bodyParserOptions },
-      ),
-    ]);
+    this.middleware([addSearchParamsToContext]);
+    const hasDeprecatedOption = options?.rawBody !== undefined ||
+      options?.bodyParserOptions !== undefined;
+    if (hasDeprecatedOption && options?.useDefaultBodyParser !== true) {
+      throw new Error(
+        "`rawBody` and `bodyParserOptions` are deprecated and no longer take " +
+          "effect on their own. To keep the legacy default body-parser behavior, " +
+          "set `useDefaultBodyParser: true`. Prefer adding `bodyParser()` " +
+          "explicitly via `protocol.middleware(...)` or " +
+          "`route.use(bodyParser(...))` instead.",
+      );
+    }
+    if (options?.useDefaultBodyParser || hasDeprecatedOption) {
+      this.middleware(
+        options.rawBody
+          ? addRawBodyToContext
+          : bodyParser(
+            options.bodyParserOptions && { ...options.bodyParserOptions },
+          ),
+      );
+    }
     this.#router = new Router();
   }
 
@@ -77,7 +114,7 @@ export class HttpProtocol<T extends AppContext> implements Protocol<T> {
   }
 
   middleware(middleware: Middleware<T> | Middleware<T>[]): HttpProtocol<T> {
-    chain.push(...(Array.isArray(middleware) ? middleware : [middleware]));
+    this.#chain.push(...(Array.isArray(middleware) ? middleware : [middleware]));
     return this;
   }
 
@@ -88,7 +125,7 @@ export class HttpProtocol<T extends AppContext> implements Protocol<T> {
     const ctx = new RequestContext(request, connection);
 
     try {
-      const resp = await handle(ctx, chain, this.#router.resolve);
+      const resp = await handle(ctx, this.#chain, this.#router.resolve);
       this.hook(HookType.REQUEST_SUCCESS, ctx);
       return resp;
     } catch (error: unknown) {

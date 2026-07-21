@@ -12,11 +12,14 @@ export interface Parser<T> {
 export interface BodyParserOptions {
   maxBodySize: number;
   paser?: Parser<unknown>[];
+  /** Attach the raw request bytes to `ctx.rawContent` (Uint8Array). Default: false. */
+  keepRaw?: boolean;
 }
 
 const defaultOptions: BodyParserOptions = {
   maxBodySize: 1024,
   paser: [JSONParser],
+  keepRaw: false,
 };
 
 export function bodyParser(
@@ -24,9 +27,19 @@ export function bodyParser(
 ): Middleware {
   const options = { ...defaultOptions, ...parserOptions };
   return async (ctx: RequestContext, next: Next) => {
+    if (!ctx.request.body) {
+      return next();
+    }
+    const buffer = await readToMaxSize(
+      ctx.request.body,
+      options.maxBodySize,
+    );
+    if (options.keepRaw) {
+      ctx.rawContent = buffer;
+    }
     const contentType = ctx.request.headers.get("content-type")?.split(" ")[0]
       ?.replace(";", "");
-    if (ctx.request.body && contentType) {
+    if (contentType) {
       const parser = options.paser?.find((parser) => {
         return parser.mimeType === contentType;
       });
@@ -35,15 +48,13 @@ export function bodyParser(
           "Content type of request not supported",
         );
       }
-      ctx.body = parser.parse(
-        await readToMaxSize(ctx.request.body, options.maxBodySize),
-      );
+      ctx.body = parser.parse(buffer);
     }
     return next();
   };
 }
 
-function readToMaxSize(
+export function readToMaxSize(
   stream: ReadableStream<Uint8Array>,
   maxBodySize: number,
 ): Promise<Uint8Array> {
@@ -51,32 +62,35 @@ function readToMaxSize(
 }
 
 async function readAll(
-  reader: ReadableStreamDefaultReader,
+  reader: ReadableStreamDefaultReader<Uint8Array>,
   maxBodySize: number,
 ): Promise<Uint8Array> {
-  let isDone = false;
-  let buffer = new Uint8Array(0);
-  while (!isDone) {
+  const chunks: Uint8Array[] = [];
+  let totalLength = 0;
+  while (true) {
     const { done, value } = await reader.read();
     if (done) {
-      isDone = true;
       break;
     }
-    if (isExceeding(buffer, value, maxBodySize)) {
+    if (totalLength + value.byteLength > maxBodySize) {
       throw new EntityTooLargeException(
         `Max. body size of ${maxBodySize} bytes exceeded`,
       );
     }
-    buffer = new Uint8Array([...buffer, ...value]);
+    chunks.push(value);
+    totalLength += value.byteLength;
   }
-  return buffer;
-}
-
-function isExceeding(
-  buffer: Uint8Array,
-  value: Uint8Array,
-  maxBodySize: number,
-): boolean {
-  return (value.length > maxBodySize ||
-    buffer.byteLength > maxBodySize);
+  if (chunks.length === 0) {
+    return new Uint8Array(0);
+  }
+  if (chunks.length === 1) {
+    return chunks[0];
+  }
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return result;
 }
