@@ -60,6 +60,15 @@ function withCountedSinks(fn: () => void): Record<SinkName, number> {
   return calls;
 }
 
+Deno.test({
+  name: "defaults to DEBUG when env permission is denied",
+  permissions: { env: false },
+  async fn() {
+    const logger = await import("./logger.ts?env-permission-denied");
+    assert(logger.getLogLevel() === logger.LogLevel.DEBUG);
+  },
+});
+
 Deno.test("log level", async (t) => {
   const originalLogLevel = getLogLevel();
   const originalLogLevelEnv = Deno.env.get(ENV_VAR);

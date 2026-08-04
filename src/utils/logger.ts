@@ -1,5 +1,6 @@
 import { NAME } from "../constants.ts";
 import { isProd } from "./environment.ts";
+import { readEnv } from "./read-env.ts";
 
 export enum LogLevel {
   TRACE = 10,
@@ -33,17 +34,7 @@ function parseLevel(value: string | undefined): LogLevel | undefined {
 }
 
 function resolveInitialLevel(): LogLevel {
-  try {
-    return parseLevel(Deno.env.get(ENV_VAR)) ?? resolveDefault();
-  } catch (error) {
-    if (
-      error instanceof Deno.errors.NotCapable ||
-      (error instanceof Error && error.name === "PermissionDenied")
-    ) {
-      return LogLevel.DEBUG;
-    }
-    throw error;
-  }
+  return parseLevel(readEnv(ENV_VAR)) ?? resolveDefault();
 }
 
 let currentLevel: LogLevel = resolveInitialLevel();

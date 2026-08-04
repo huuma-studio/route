@@ -108,9 +108,11 @@ const loggerMiddleware = async (ctx, next) => {
 app.middleware(loggerMiddleware);
 
 // Or apply to specific routes
-app.get("/protected", (ctx) => {
-  return new Response("Protected resource");
-}).middleware(authMiddleware);
+app
+  .get("/protected", (ctx) => {
+    return new Response("Protected resource");
+  })
+  .middleware(authMiddleware);
 ```
 
 Built-in middlewares:
@@ -126,10 +128,7 @@ Built-in middlewares:
 import { bodyParser } from "jsr:@huuma/route/middleware/body-parser";
 import { logTimeToResponse } from "jsr:@huuma/route/middleware/log-time-to-response";
 
-app.middleware([
-  bodyParser(),
-  logTimeToResponse,
-]);
+app.middleware([bodyParser(), logTimeToResponse]);
 ```
 
 ## Request Context
@@ -186,6 +185,7 @@ app.get("/users/:id", (ctx) => {
 ```
 
 Built-in exceptions:
+
 - `BadRequestException` (400)
 - `UnauthorizedException` (401)
 - `NotFoundException` (404)
@@ -275,27 +275,35 @@ const userSchema = new ObjectSchema({
   email: new StringSchema().notEmpty(),
 });
 
-app.post("/users", (ctx) => {
-  // At this point ctx.body is validated
-  return new Response(`Created user: ${ctx.body.name}`);
-}).middleware(validateBody(userSchema));
+app
+  .post("/users", (ctx) => {
+    // At this point ctx.body is validated
+    return new Response(`Created user: ${ctx.body.name}`);
+  })
+  .middleware(validateBody(userSchema));
 ```
 
 ## Logging
 
-Huuma/Route logs framework events through a built-in logger with severity levels. By default the logger is verbose (`DEBUG`) so you see everything during development, and it switches to `INFO` when `HUUMA_ENV=PROD`. Set the `HUUMA_LOG_LEVEL` environment variable to control the threshold explicitly — only messages at that level or higher are emitted.
+Huuma/Route logs framework events through a built-in logger with severity levels. By default the logger is verbose (`DEBUG`) so you see everything during development. When environment access is granted, the logger uses `isProd()` to read `HUUMA_ENV` and switches to `INFO` when `HUUMA_ENV=PROD`. Without environment access, production mode cannot affect the log level and the logger retains the default `DEBUG` level. Set the `HUUMA_LOG_LEVEL` environment variable to control the threshold explicitly — only messages at that level or higher are emitted.
 
 Available levels, from most to least verbose: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
 
 ```bash
-# Only show warnings and errors
-HUUMA_LOG_LEVEL=WARN deno run --allow-env main.ts
+# Only show warnings and errors. Allow explicit log-level configuration and
+# production detection via isProd().
+HUUMA_LOG_LEVEL=WARN deno run --allow-env=HUUMA_LOG_LEVEL,HUUMA_ENV main.ts
 ```
 
 You can also use the logger directly and override the level at runtime:
 
 ```typescript
-import { LogLevel, setLogLevel, info, warn } from "jsr:@huuma/route/utils/logger";
+import {
+  LogLevel,
+  setLogLevel,
+  info,
+  warn,
+} from "jsr:@huuma/route/utils/logger";
 
 setLogLevel(LogLevel.DEBUG);
 
@@ -318,6 +326,8 @@ if (isEnvironment("STAGING")) {
   // Staging-specific code
 }
 ```
+
+Both helpers read `HUUMA_ENV` and require `--allow-env=HUUMA_ENV` to detect a configured environment. If environment access is not granted, they return `false` instead of throwing a permission error.
 
 ## License
 
