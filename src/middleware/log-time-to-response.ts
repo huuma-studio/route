@@ -1,5 +1,5 @@
 import type { RequestContext } from "../http/request.ts";
-import { log } from "../utils/logger.ts";
+import { info as log } from "../utils/logger.ts";
 import type { Next } from "./middleware.ts";
 
 export async function logTimeToResponse(
