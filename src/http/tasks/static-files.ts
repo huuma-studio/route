@@ -1,7 +1,7 @@
 import type { App } from "../../app.ts";
 import { isProd } from "../../utils/environment.ts";
 import { extension } from "../../utils/file.ts";
-import { log } from "../../utils/logger.ts";
+import { warn as log } from "../../utils/logger.ts";
 import { mimeTypeByExtension } from "../../utils/mime-types.ts";
 
 const DEFAULT_DIRECTORY = "static";

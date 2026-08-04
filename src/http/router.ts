@@ -1,6 +1,6 @@
 import type { AppContext } from "../app.ts";
 import { handle } from "../middleware/middleware.ts";
-import { log } from "../utils/logger.ts";
+import { debug as log } from "../utils/logger.ts";
 import { NotFoundException } from "./exceptions/not-found-exception.ts";
 import type { HttpMethod } from "./http-method.ts";
 import {

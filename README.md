@@ -281,6 +281,28 @@ app.post("/users", (ctx) => {
 }).middleware(validateBody(userSchema));
 ```
 
+## Logging
+
+Huuma/Route logs framework events through a built-in logger with severity levels. By default the logger is verbose (`DEBUG`) so you see everything during development, and it switches to `INFO` when `HUUMA_ENV=PROD`. Set the `HUUMA_LOG_LEVEL` environment variable to control the threshold explicitly — only messages at that level or higher are emitted.
+
+Available levels, from most to least verbose: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
+
+```bash
+# Only show warnings and errors
+HUUMA_LOG_LEVEL=WARN deno run --allow-env main.ts
+```
+
+You can also use the logger directly and override the level at runtime:
+
+```typescript
+import { LogLevel, setLogLevel, info, warn } from "jsr:@huuma/route/utils/logger";
+
+setLogLevel(LogLevel.DEBUG);
+
+info("APP", "Server started on port 8000");
+warn("HTTP", "Cache headers disabled in development");
+```
+
 ## Environment Detection
 
 Detect the current environment:
