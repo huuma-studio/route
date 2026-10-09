@@ -8,6 +8,8 @@ import type {
 } from "./http/request.ts";
 import { type Route, RouteGroup } from "./http/route.ts";
 import type { Middleware } from "./middleware/middleware.ts";
+import { platformArguments } from "./http/platform.ts";
+import { setEnv } from "./utils/read-env.ts";
 import {
   HookType,
   type Protocol,
@@ -17,7 +19,13 @@ import {
 export type State = Record<string, unknown>;
 export type AppContext = {
   State?: State;
+  /** Platform bindings available as `ctx.env`, such as Cloudflare Workers `env`. */
+  Env?: Record<string, unknown>;
 };
+
+// String bindings applied to the environment on the first `fetch`, so
+// `isProd()` and the logger work on platforms with request-scoped env.
+const ENV_BINDINGS = ["HUUMA_ENV", "HUUMA_LOG_LEVEL"];
 
 export type AppOptions<T extends AppContext> = {
   protocol?: Protocol<T>;
@@ -27,6 +35,8 @@ export type AppOptions<T extends AppContext> = {
 // deno-lint-ignore no-explicit-any
 export class App<T extends AppContext = any> {
   #options: Required<Pick<AppOptions<T>, "protocol">>;
+  #initialized = false;
+  #envApplied = false;
   constructor(options?: AppOptions<T>) {
     this.#options = {
       protocol: options?.protocol ?? new HttpProtocol(options?.protocolOptions),
@@ -35,9 +45,29 @@ export class App<T extends AppContext = any> {
 
   handle = (
     request: Request,
-    connection: ProtocolConnectionInfo,
+    connection?: ProtocolConnectionInfo,
   ): Promise<Response> => {
     return this.#options.protocol.handle(request, connection);
+  };
+
+  /**
+   * Standard fetch handler for `export default app` on Cloudflare Workers, Bun
+   * and `deno serve`. Initializes the app on the first request.
+   * @param info - Workers `env`, Deno `ServeHandlerInfo` or the Bun `Server`
+   * @param ctx - Workers `ExecutionContext`
+   */
+  fetch = (
+    request: Request,
+    info?: unknown,
+    ctx?: unknown,
+  ): Promise<Response> => {
+    const { connection, platform } = platformArguments(request, info, ctx);
+    if (!this.#envApplied) {
+      this.#envApplied = true;
+      if (platform.env) applyEnvBindings(platform.env);
+    }
+    if (!this.#initialized) this.init();
+    return this.#options.protocol.handle(request, connection, platform);
   };
 
   on(
@@ -65,6 +95,7 @@ export class App<T extends AppContext = any> {
   }
 
   init(): this["handle"] {
+    this.#initialized = true;
     this.#options.protocol.hook(HookType.APPLICATION_INIT, this);
     this.#options.protocol.router.list();
     return this.handle;
@@ -215,4 +246,12 @@ export class App<T extends AppContext = any> {
   group(path: string, routes: Route<T>[]): RouteGroup<T> {
     return new RouteGroup(path, routes);
   }
+}
+
+function applyEnvBindings(env: Record<string, unknown>): void {
+  const values: Record<string, string> = {};
+  for (const name of ENV_BINDINGS) {
+    if (typeof env[name] === "string") values[name] = env[name];
+  }
+  if (Object.keys(values).length) setEnv(values);
 }

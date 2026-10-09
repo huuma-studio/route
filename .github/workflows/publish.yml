@@ -17,3 +17,15 @@ jobs:
 
       - name: Publish package
         run: npx jsr publish
+
+  smoke-test:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+      - uses: oven-sh/setup-bun@v2
+      - name: Install the published version on Node and Bun and serve a request
+        run: test/smoke/run.sh "$(node -p 'require("./jsr.json").version')"
