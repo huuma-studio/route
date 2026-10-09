@@ -1,5 +1,13 @@
 import { assertEquals, assertMatch } from "@std/assert";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  type FileHandle,
+  mkdir,
+  mkdtemp,
+  open,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
@@ -47,6 +55,33 @@ async function withEnvironment(
   }
 }
 
+// Counts the files served through `FileHandle.createReadStream`, so streaming
+// can be told apart from buffering, which returns the same bytes.
+async function countStreamedFiles(
+  directory: string,
+  fn: () => Promise<void>,
+): Promise<number> {
+  const handle = await open(join(directory, "index.html"));
+  const prototype = Object.getPrototypeOf(handle) as FileHandle;
+  await handle.close();
+
+  const createReadStream = prototype.createReadStream;
+  let count = 0;
+  prototype.createReadStream = function (
+    this: FileHandle,
+    ...args: Parameters<FileHandle["createReadStream"]>
+  ) {
+    count++;
+    return createReadStream.apply(this, args);
+  };
+  try {
+    await fn();
+  } finally {
+    prototype.createReadStream = createReadStream;
+  }
+  return count;
+}
+
 function get(app: App, path: string): Promise<Response> {
   return app.handle(new Request(`http://localhost${path}`), CONNECTION);
 }
@@ -55,11 +90,14 @@ Deno.test(loadStaticFiles.name, async (t) => {
   await t.step("registers files in nested directories", async () => {
     await withFixture(async (directory) => {
       const app = await loadStaticFiles(new App(), { directory });
-      for (const [path, content] of Object.entries(FILES)) {
-        const response = await get(app, `/${path}`);
-        assertEquals(response.status, 200);
-        assertEquals(await response.text(), content);
-      }
+      const streamed = await countStreamedFiles(directory, async () => {
+        for (const [path, content] of Object.entries(FILES)) {
+          const response = await get(app, `/${path}`);
+          assertEquals(response.status, 200);
+          assertEquals(await response.text(), content);
+        }
+      });
+      assertEquals(streamed, 0);
     });
   });
 
@@ -91,10 +129,13 @@ Deno.test(loadStaticFiles.name, async (t) => {
         directory,
         enableResponseStreaming: true,
       });
-      for (const [path, content] of Object.entries(FILES)) {
-        const response = await get(app, `/${path}`);
-        assertEquals(await response.text(), content);
-      }
+      const streamed = await countStreamedFiles(directory, async () => {
+        for (const [path, content] of Object.entries(FILES)) {
+          const response = await get(app, `/${path}`);
+          assertEquals(await response.text(), content);
+        }
+      });
+      assertEquals(streamed, Object.keys(FILES).length);
     });
   });
 
@@ -154,8 +195,11 @@ Deno.test(registerStaticFiles.name, async (t) => {
         path: "js/vendor/lib.js",
         enableResponseStreaming: true,
       });
-      const response = await get(app, "/js/vendor/lib.js");
-      assertEquals(await response.text(), FILES["js/vendor/lib.js"]);
+      const streamed = await countStreamedFiles(directory, async () => {
+        const response = await get(app, "/js/vendor/lib.js");
+        assertEquals(await response.text(), FILES["js/vendor/lib.js"]);
+      });
+      assertEquals(streamed, 1);
     });
   });
 });
