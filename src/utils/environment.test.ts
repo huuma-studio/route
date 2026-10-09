@@ -1,18 +1,19 @@
 import { assert } from "@std/assert";
+import process from "node:process";
 import { isEnvironment, isProd } from "./environment.ts";
 
 const HUUMA_ENV = "HUUMA_ENV";
 
 function withEnvironment(value: string, fn: () => void): void {
-  const original = Deno.env.get(HUUMA_ENV);
-  Deno.env.set(HUUMA_ENV, value);
+  const original = process.env[HUUMA_ENV];
+  process.env[HUUMA_ENV] = value;
   try {
     fn();
   } finally {
     if (original === undefined) {
-      Deno.env.delete(HUUMA_ENV);
+      delete process.env[HUUMA_ENV];
     } else {
-      Deno.env.set(HUUMA_ENV, original);
+      process.env[HUUMA_ENV] = original;
     }
   }
 }

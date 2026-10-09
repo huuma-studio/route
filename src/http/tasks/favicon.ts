@@ -1,5 +1,7 @@
+import { open } from "node:fs/promises";
 import type { App } from "../../app.ts";
 import { isProd } from "../../utils/environment.ts";
+import { isNodeError, readableStream } from "./file-stream.ts";
 
 /**
  * Task to load a favicon from the provided path
@@ -10,9 +12,9 @@ import { isProd } from "../../utils/environment.ts";
 export function Favicon(path: string, app: App) {
   app.get("/favicon.ico", async () => {
     try {
-      const file = await Deno.open(path);
+      const file = await open(path);
       return new Response(
-        file.readable,
+        readableStream(file),
         {
           headers: {
             "Content-Type": "image/vnd.microsoft.icon",
@@ -21,7 +23,7 @@ export function Favicon(path: string, app: App) {
         },
       );
     } catch (e) {
-      if (e instanceof Deno.errors.NotFound) {
+      if (isNodeError(e, "ENOENT")) {
         throw new Error("Not able to load favicon");
       }
       throw e;
