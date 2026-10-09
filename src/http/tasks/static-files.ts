@@ -1,8 +1,10 @@
+import { open, readdir, readFile } from "node:fs/promises";
 import type { App } from "../../app.ts";
 import { isProd } from "../../utils/environment.ts";
 import { extension } from "../../utils/file.ts";
 import { warn as log } from "../../utils/logger.ts";
 import { mimeTypeByExtension } from "../../utils/mime-types.ts";
+import { readableStream } from "./file-stream.ts";
 
 const DEFAULT_DIRECTORY = "static";
 
@@ -19,12 +21,11 @@ export async function loadStaticFiles(
 ): Promise<App> {
   const directory = options?.directory ?? DEFAULT_DIRECTORY;
   try {
-    for await (
-      const file of Deno.readDir(
-        filePath(directory, options?.path),
-      )
-    ) {
-      if (file.isDirectory || file.isSymlink) {
+    const files = await readdir(filePath(directory, options?.path), {
+      withFileTypes: true,
+    });
+    for (const file of files) {
+      if (file.isDirectory() || file.isSymbolicLink()) {
         await loadStaticFiles(app, {
           ...options,
           directory,
@@ -35,6 +36,7 @@ export async function loadStaticFiles(
         registerStaticFiles(
           app,
           {
+            enableResponseStreaming: options?.enableResponseStreaming,
             directory,
             path: options?.path ? `${options.path}/${file.name}` : file.name,
             maxAge: options?.maxAge,
@@ -68,8 +70,8 @@ export function registerStaticFiles(
   app.get(`/${options.path}`, async () => {
     return new Response(
       options.enableResponseStreaming
-        ? (await Deno.open(file)).readable
-        : await Deno.readFile(file),
+        ? readableStream(await open(file))
+        : new Uint8Array(await readFile(file)),
       {
         headers: {
           "Content-Type": mimeTypeByExtension(extension(options.path))?.type ||
