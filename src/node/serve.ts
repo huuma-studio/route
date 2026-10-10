@@ -143,10 +143,13 @@ function toRequest(req: IncomingMessage, signal: AbortSignal): Request {
   const hasBody = !BODYLESS_METHODS.has(method);
 
   // Concatenate instead of resolving against a base URL, so a target such as
-  // `//foo/bar` stays a path instead of becoming the host `foo`. Absolute-form
+  // `//foo/bar` stays a path instead of becoming the host `foo`. The
+  // asterisk-form of `OPTIONS *` becomes the path `/*`, and absolute-form
   // targets (`http://host/path`) are parsed as they are.
   const target = req.url ?? "/";
-  const url = target.startsWith("/")
+  const url = target === "*"
+    ? new URL(`http://${host}/*`)
+    : target.startsWith("/")
     ? new URL(`http://${host}${target}`)
     : new URL(target);
 

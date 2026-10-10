@@ -25,15 +25,19 @@ function rawGet(
   base: string,
   path: string,
   headers?: Record<string, string>,
+  method = "GET",
 ): Promise<string> {
   const { hostname, port } = new URL(base);
   return new Promise((resolve, reject) => {
-    const req = httpRequest({ hostname, port, path, headers }, (res) => {
-      let body = "";
-      res.setEncoding("utf8");
-      res.on("data", (chunk) => body += chunk);
-      res.on("end", () => resolve(body));
-    });
+    const req = httpRequest(
+      { hostname, port, path, headers, method },
+      (res) => {
+        let body = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => body += chunk);
+        res.on("end", () => resolve(body));
+      },
+    );
     req.once("error", reject);
     req.end();
   });
@@ -181,6 +185,17 @@ describe("serve", () => {
     const base = await start(echoUrl);
     const { host } = new URL(base);
     assert.equal(await rawGet(base, "//foo/bar"), `${host} //foo/bar`);
+  });
+
+  it("routes OPTIONS * to the path /*", {
+    // Bun's HTTP server answers asterisk-form requests with 400 before any
+    // JavaScript runs, so only real Node.js can pass this to the adapter.
+    skip: "Bun" in globalThis && "Bun rejects OPTIONS * itself",
+  }, async () => {
+    const app = new App();
+    app.options("/*", (ctx) => new Response(new URL(ctx.request.url).pathname));
+    const base = await start(app);
+    assert.equal(await rawGet(base, "*", undefined, "OPTIONS"), "/*");
   });
 
   it("ignores a Host header that would change the path", async () => {
