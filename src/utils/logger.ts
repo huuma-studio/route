@@ -1,6 +1,6 @@
 import { NAME } from "../constants.ts";
 import { isProd } from "./environment.ts";
-import { readEnv } from "./read-env.ts";
+import { envRevision, readEnv } from "./read-env.ts";
 
 export enum LogLevel {
   TRACE = 10,
@@ -33,23 +33,32 @@ function parseLevel(value: string | undefined): LogLevel | undefined {
   return LEVEL_BY_NAME[value.toUpperCase()];
 }
 
-function resolveInitialLevel(): LogLevel {
+function resolveLevel(): LogLevel {
   return parseLevel(readEnv(ENV_VAR)) ?? resolveDefault();
 }
 
-let currentLevel: LogLevel = resolveInitialLevel();
+let explicitLevel: LogLevel | undefined;
+
+// Resolved lazily instead of at import time, because platforms such as
+// Cloudflare Workers only provide env per request (applied through `setEnv`).
+let resolved: { level: LogLevel; revision: number } | undefined;
 
 /** Overrides the active log level at runtime. Takes precedence over `HUUMA_LOG_LEVEL`. */
 export function setLogLevel(level: LogLevel): void {
-  currentLevel = level;
+  explicitLevel = level;
 }
 
 export function getLogLevel(): LogLevel {
-  return currentLevel;
+  if (explicitLevel !== undefined) return explicitLevel;
+  const revision = envRevision();
+  if (resolved?.revision !== revision) {
+    resolved = { level: resolveLevel(), revision };
+  }
+  return resolved.level;
 }
 
 function shouldEmit(level: LogLevel): boolean {
-  return level >= currentLevel;
+  return level >= getLogLevel();
 }
 
 function emit(

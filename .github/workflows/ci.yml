@@ -6,15 +6,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
-      - run: deno task check
-  test:
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      # Catches JSR publish errors (slow types, missing exports) before merge.
+      - run: bunx jsr publish --dry-run
+  test-bun:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: denoland/setup-deno@v2
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      # Includes test/workers, which runs the app in workerd without nodejs_compat.
+      - run: bun test
+  test-node:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          deno-version: v2.x
-      - run: deno task test
+          node-version: lts/*
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      # Runs the node:http adapter tests on real Node.js.
+      - run: bun run test:node

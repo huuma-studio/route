@@ -1,7 +1,7 @@
-import { assert, assertEquals } from "@std/assert";
 import { mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { describe, expect, it } from "bun:test";
 import { isNodeError, readableStream } from "./file-stream.ts";
 
 const CONTENT = "Hello, Huuma!";
@@ -17,35 +17,35 @@ async function withFile(fn: (path: string) => Promise<void>): Promise<void> {
   }
 }
 
-Deno.test(readableStream.name, async (t) => {
-  await t.step("streams the file and closes it at the end", async () => {
+describe("readableStream", () => {
+  it("streams the file and closes it at the end", async () => {
     await withFile(async (path) => {
       const handle = await open(path);
-      assertEquals(await new Response(readableStream(handle)).text(), CONTENT);
-      assertEquals(handle.fd, -1);
+      expect(await new Response(readableStream(handle)).text()).toBe(CONTENT);
+      expect(handle.fd).toBe(-1);
     });
   });
 
-  await t.step("closes the file when the stream is cancelled", async () => {
+  it("closes the file when the stream is cancelled", async () => {
     await withFile(async (path) => {
       const handle = await open(path);
       await readableStream(handle).cancel();
       await new Promise((resolve) => setTimeout(resolve, 0));
-      assertEquals(handle.fd, -1);
+      expect(handle.fd).toBe(-1);
     });
   });
 });
 
-Deno.test(isNodeError.name, async (t) => {
-  await t.step("matches the errno code of filesystem errors", async () => {
+describe("isNodeError", () => {
+  it("matches the errno code of filesystem errors", async () => {
     const error = await open(join(tmpdir(), "huuma-route-missing-file"))
       .catch((e) => e);
-    assert(isNodeError(error, "ENOENT"));
-    assert(!isNodeError(error, "EACCES"));
+    expect(isNodeError(error, "ENOENT")).toBe(true);
+    expect(isNodeError(error, "EACCES")).toBe(false);
   });
 
-  await t.step("rejects values without a code", () => {
-    assert(!isNodeError(new Error("ENOENT"), "ENOENT"));
-    assert(!isNodeError({ code: "ENOENT" }, "ENOENT"));
+  it("rejects values without a code", () => {
+    expect(isNodeError(new Error("ENOENT"), "ENOENT")).toBe(false);
+    expect(isNodeError({ code: "ENOENT" }, "ENOENT")).toBe(false);
   });
 });

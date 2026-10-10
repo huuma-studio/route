@@ -4,3 +4,4 @@
 examples/parcel/*
 archive/*
 .DS_STORE
+node_modules/

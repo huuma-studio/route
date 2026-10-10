@@ -1,8 +1,7 @@
+import { describe, expect, it } from "bun:test";
 import { EntityTooLargeException } from "../../http/exceptions/entity-too-large-exception.ts";
 import type { RequestContext } from "../../http/request.ts";
 import { bodyParser } from "./body-parser.ts";
-import { assertEquals } from "@std/assert";
-import { assertRejects } from "@std/assert";
 
 const requestOptions = {
   method: "POST",
@@ -11,165 +10,78 @@ const requestOptions = {
   },
 };
 
-Deno.test("Body Parser:", async (t) => {
-  await t.step("parse if body size not exceeds the max size", async () => {
-    const ctx = <RequestContext> {
-      request: new Request("https://huuma.studio", {
-        ...requestOptions,
-        body: '"a"',
-      }),
-    } as any;
-    await bodyParser({ maxBodySize: 3 })(ctx, () => {
-      return Promise.resolve(new Response());
-    });
-    assertEquals("a", ctx.body);
+function contextOf(body?: string): RequestContext {
+  return {
+    request: new Request("https://huuma.studio", { ...requestOptions, body }),
+  } as RequestContext;
+}
+
+const next = () => Promise.resolve(new Response());
+
+describe("Body Parser:", () => {
+  it("parse if body size not exceeds the max size", async () => {
+    const ctx = contextOf('"a"');
+    await bodyParser({ maxBodySize: 3 })(ctx, next);
+    expect(ctx.body).toBe("a");
   });
 
-  await t.step(
-    'reject if body exceededs max size with "EntityTooLargeException"',
-    () => {
-      const ctx = <RequestContext> {
-        request: new Request("https://huuma.studio", {
-          ...requestOptions,
-          body: '"a"',
-        }),
-      };
-      assertRejects(
-        () => {
-          return bodyParser({ maxBodySize: 2 })(ctx, () => {
-            return Promise.resolve(new Response());
-          }) as Promise<Response>;
-        },
-        EntityTooLargeException,
-      );
-    },
-  );
+  it('reject if body exceededs max size with "EntityTooLargeException"', async () => {
+    await expect(
+      bodyParser({ maxBodySize: 2 })(contextOf('"a"'), next) as Promise<
+        Response
+      >,
+    ).rejects.toThrow(EntityTooLargeException);
+  });
 
-  await t.step(
-    "handle undefined body",
-    () => {
-      const ctx = <RequestContext> {
-        request: new Request("https://huuma.studio", {
-          ...requestOptions,
-        }),
-      };
+  it("handle undefined body", async () => {
+    const ctx = contextOf();
+    await bodyParser()(ctx, next);
+    expect(ctx.body).toBeUndefined();
+  });
 
-      bodyParser()(ctx, () => {
-        return Promise.resolve(new Response());
-      });
-
-      assertEquals(ctx.body, undefined);
-    },
-  );
-
-  await t.step('"application/json": parse json with body', async () => {
+  it('"application/json": parse json with body', async () => {
     const json = {
       hello: "world",
     };
-    const jsonAsString = JSON.stringify(json);
-
-    const ctx = <RequestContext> {
-      request: new Request("https://huuma.studio", {
-        ...requestOptions,
-        body: jsonAsString,
-      }),
-    };
-
-    await bodyParser()(ctx, () => {
-      return Promise.resolve(new Response());
-    });
-    assertEquals(json, ctx.body);
+    const ctx = contextOf(JSON.stringify(json));
+    await bodyParser()(ctx, next);
+    expect(ctx.body).toEqual(json);
   });
 
-  await t.step('"application/json": parse empty json body', async () => {
-    const json = "";
-    const jsonAsString = JSON.stringify(json);
-
-    const ctx = <RequestContext> {
-      request: new Request("https://huuma.studio", {
-        ...requestOptions,
-        body: jsonAsString,
-      }),
-    };
-
-    await bodyParser()(ctx, () => {
-      return Promise.resolve(new Response());
-    });
-
-    assertEquals(json, ctx.body);
+  it('"application/json": parse empty json body', async () => {
+    const ctx = contextOf(JSON.stringify(""));
+    await bodyParser()(ctx, next);
+    expect(ctx.body).toBe("");
   });
 
-  await t.step(
-    '"application/json": reject not json string with "SyntaxError"',
-    () => {
-      const json = "peng";
-
-      assertRejects(
-        () => {
-          return bodyParser()({
-            request: new Request("https://huuma.studio", {
-              ...requestOptions,
-              body: json,
-            }),
-          } as any, () => {
-            return Promise.resolve(new Response());
-          }) as Promise<Response>;
-        },
-        SyntaxError,
-      );
-    },
-  );
+  it('"application/json": reject not json string with "SyntaxError"', async () => {
+    await expect(
+      bodyParser()(contextOf("peng"), next) as Promise<Response>,
+    ).rejects.toThrow(SyntaxError);
+  });
 });
 
-Deno.test("Body Parser keepRaw:", async (t) => {
+describe("Body Parser keepRaw:", () => {
   const encoder = new TextEncoder();
 
-  await t.step("does not attach rawContent by default", async () => {
-    const ctx = {
-      request: new Request("https://huuma.studio", {
-        ...requestOptions,
-        body: '"a"',
-      }),
-    } as RequestContext;
-
-    await bodyParser()(ctx, () => Promise.resolve(new Response()));
-
-    assertEquals(ctx.rawContent, undefined);
-    assertEquals(ctx.body, "a");
+  it("does not attach rawContent by default", async () => {
+    const ctx = contextOf('"a"');
+    await bodyParser()(ctx, next);
+    expect(ctx.rawContent).toBeUndefined();
+    expect(ctx.body).toBe("a");
   });
 
-  await t.step("attaches rawContent when keepRaw is true", async () => {
-    const ctx = {
-      request: new Request("https://huuma.studio", {
-        ...requestOptions,
-        body: '"hello"',
-      }),
-    } as RequestContext;
-
-    await bodyParser({ keepRaw: true })(ctx, () =>
-      Promise.resolve(new Response())
-    );
-
-    assertEquals(ctx.rawContent, encoder.encode('"hello"'));
-    assertEquals(ctx.body, "hello");
+  it("attaches rawContent when keepRaw is true", async () => {
+    const ctx = contextOf('"hello"');
+    await bodyParser({ keepRaw: true })(ctx, next);
+    expect(ctx.rawContent).toEqual(encoder.encode('"hello"'));
+    expect(ctx.body).toBe("hello");
   });
 
-  await t.step(
-    "does not attach rawContent when keepRaw is false",
-    async () => {
-      const ctx = {
-        request: new Request("https://huuma.studio", {
-          ...requestOptions,
-          body: '"a"',
-        }),
-      } as RequestContext;
-
-      await bodyParser({ keepRaw: false })(ctx, () =>
-        Promise.resolve(new Response())
-      );
-
-      assertEquals(ctx.rawContent, undefined);
-      assertEquals(ctx.body, "a");
-    },
-  );
+  it("does not attach rawContent when keepRaw is false", async () => {
+    const ctx = contextOf('"a"');
+    await bodyParser({ keepRaw: false })(ctx, next);
+    expect(ctx.rawContent).toBeUndefined();
+    expect(ctx.body).toBe("a");
+  });
 });
