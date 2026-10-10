@@ -23,7 +23,10 @@ export type ServeOptions = {
   port?: number;
   /** Defaults to `"0.0.0.0"`. */
   hostname?: string;
-  /** Stops the server when aborted. */
+  /**
+   * Stops the server when aborted. If it aborts before the server is
+   * listening, `serve` rejects with the abort reason and no server stays open.
+   */
   signal?: AbortSignal;
 };
 
@@ -38,6 +41,9 @@ export type NodeServer = {
 
 const BODYLESS_METHODS = new Set(["GET", "HEAD"]);
 
+// A Host header that can't change the URL's path, such as `example.com:8000`.
+const VALID_HOST = /^[^\s/?#@\\]+$/;
+
 /**
  * Serves a fetch handler with `node:http`, like `Deno.serve` does on Deno.
  * Resolves once the server is listening.
@@ -46,6 +52,9 @@ export function serve(
   handler: FetchHandler,
   options?: ServeOptions,
 ): Promise<NodeServer> {
+  const signal = options?.signal;
+  if (signal?.aborted) return Promise.reject(signal.reason);
+
   const server = createServer((req, res) => {
     void respond(handler, req, res);
   });
@@ -53,21 +62,30 @@ export function serve(
   const finished = new Promise<void>((resolve) => {
     server.once("close", () => resolve());
   });
+  // Tracked here because `server.listening` turns true before the listen
+  // callback on Bun; closing then would skip the callback.
+  let started = false;
   const shutdown = (): Promise<void> => {
-    if (server.listening) {
+    if (started) {
+      started = false;
       server.close();
       server.closeIdleConnections();
     }
     return finished;
   };
-  options?.signal?.addEventListener("abort", () => void shutdown(), {
-    once: true,
-  });
+  signal?.addEventListener("abort", () => void shutdown(), { once: true });
 
   return new Promise((resolve, reject) => {
     server.once("error", reject);
     server.listen(options?.port ?? 8000, options?.hostname ?? "0.0.0.0", () => {
       server.off("error", reject);
+      started = true;
+      // Aborted while starting: the abort listener found nothing to close yet.
+      if (signal?.aborted) {
+        void shutdown();
+        reject(signal.reason);
+        return;
+      }
       const address = server.address() as AddressInfo;
       info("NODE", `Listening on http://${address.address}:${address.port}/`);
       resolve({
@@ -90,23 +108,25 @@ async function respond(
     if (!res.writableFinished) controller.abort();
   });
 
-  let response: Response;
   try {
-    response = await handler.fetch(toRequest(req, controller.signal), {
+    const response = await handler.fetch(toRequest(req, controller.signal), {
       remoteAddr: {
         transport: "tcp",
         hostname: req.socket.remoteAddress,
         port: req.socket.remotePort,
       },
     });
+    await writeResponse(response, res);
   } catch (e) {
+    // A failure fails this request only, never the server.
     error("NODE", e instanceof Error ? e.stack ?? e.message : String(e));
-    if (!res.headersSent) res.writeHead(500);
-    res.end();
-    return;
+    if (res.headersSent) {
+      res.destroy();
+    } else {
+      res.writeHead(500);
+      res.end();
+    }
   }
-
-  await writeResponse(response, res);
 }
 
 function toRequest(req: IncomingMessage, signal: AbortSignal): Request {
@@ -116,11 +136,21 @@ function toRequest(req: IncomingMessage, signal: AbortSignal): Request {
     if (!name.startsWith(":")) headers.append(name, req.rawHeaders[i + 1]);
   }
 
-  const host = req.headers.host ?? "localhost";
+  const host = VALID_HOST.test(req.headers.host ?? "")
+    ? req.headers.host
+    : "localhost";
   const method = req.method ?? "GET";
   const hasBody = !BODYLESS_METHODS.has(method);
 
-  return new Request(new URL(req.url ?? "/", `http://${host}`), {
+  // Concatenate instead of resolving against a base URL, so a target such as
+  // `//foo/bar` stays a path instead of becoming the host `foo`. Absolute-form
+  // targets (`http://host/path`) are parsed as they are.
+  const target = req.url ?? "/";
+  const url = target.startsWith("/")
+    ? new URL(`http://${host}${target}`)
+    : new URL(target);
+
+  return new Request(url, {
     method,
     headers,
     signal,
@@ -136,6 +166,9 @@ async function writeResponse(
   response: Response,
   res: ServerResponse,
 ): Promise<void> {
+  if (response.type === "error") {
+    throw new TypeError("The fetch handler returned a network error response");
+  }
   const headers: Record<string, string | string[]> = {};
   response.headers.forEach((value, name) => {
     if (name !== "set-cookie") headers[name] = value;

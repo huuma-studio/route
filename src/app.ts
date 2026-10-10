@@ -9,6 +9,7 @@ import type {
 import { type Route, RouteGroup } from "./http/route.ts";
 import type { Middleware } from "./middleware/middleware.ts";
 import { platformArguments } from "./http/platform.ts";
+import { error } from "./utils/logger.ts";
 import { setEnv } from "./utils/read-env.ts";
 import {
   HookType,
@@ -35,7 +36,8 @@ export type AppOptions<T extends AppContext> = {
 // deno-lint-ignore no-explicit-any
 export class App<T extends AppContext = any> {
   #options: Required<Pick<AppOptions<T>, "protocol">>;
-  #initialized = false;
+  // Settles once the APPLICATION_INIT listeners have finished.
+  #ready?: Promise<void>;
   #envApplied = false;
   constructor(options?: AppOptions<T>) {
     this.#options = {
@@ -43,10 +45,11 @@ export class App<T extends AppContext = any> {
     };
   }
 
-  handle = (
+  handle = async (
     request: Request,
     connection?: ProtocolConnectionInfo,
   ): Promise<Response> => {
+    await this.#ready;
     return this.#options.protocol.handle(request, connection);
   };
 
@@ -56,7 +59,7 @@ export class App<T extends AppContext = any> {
    * @param info - Workers `env`, Deno `ServeHandlerInfo` or the Bun `Server`
    * @param ctx - Workers `ExecutionContext`
    */
-  fetch = (
+  fetch = async (
     request: Request,
     info?: unknown,
     ctx?: unknown,
@@ -66,7 +69,8 @@ export class App<T extends AppContext = any> {
       this.#envApplied = true;
       if (platform.env) applyEnvBindings(platform.env);
     }
-    if (!this.#initialized) this.init();
+    if (!this.#ready) this.init();
+    await this.#ready;
     return this.#options.protocol.handle(request, connection, platform);
   };
 
@@ -94,9 +98,21 @@ export class App<T extends AppContext = any> {
     return this.#options.protocol.on(hookName, listener);
   }
 
+  /**
+   * Runs the APPLICATION_INIT listeners. Requests through `handle` and `fetch`
+   * wait until they have finished.
+   */
   init(): this["handle"] {
-    this.#initialized = true;
-    this.#options.protocol.hook(HookType.APPLICATION_INIT, this);
+    this.#ready = Promise.resolve(
+      this.#options.protocol.hook(HookType.APPLICATION_INIT, this),
+    ).catch((reason: unknown) => {
+      error(
+        "APPLICATION INIT",
+        reason instanceof Error
+          ? reason.stack ?? reason.message
+          : String(reason),
+      );
+    });
     this.#options.protocol.router.list();
     return this.handle;
   }

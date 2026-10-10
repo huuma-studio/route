@@ -48,6 +48,18 @@ describe("App.fetch", () => {
     expect(init).toHaveBeenCalledTimes(1);
   });
 
+  it("waits for async APPLICATION_INIT listeners before the first request", async () => {
+    const app = new App();
+    app.on(HookType.APPLICATION_INIT, async (initialized) => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      initialized.get("/late", () => new Response("registered on init"));
+    });
+
+    const response = await app.fetch(new Request("http://localhost/late"));
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("registered on init");
+  });
+
   it("works as a detached function", async () => {
     const { app } = echoApp();
     const { fetch } = app;
@@ -167,6 +179,18 @@ describe("RequestContext.waitUntil without an execution context", () => {
 });
 
 describe("App.handle", () => {
+  it("waits for async APPLICATION_INIT listeners after init()", async () => {
+    const app = new App();
+    app.on(HookType.APPLICATION_INIT, async (initialized) => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      initialized.get("/late", () => new Response("registered on init"));
+    });
+
+    const handle = app.init();
+    const response = await handle(new Request("http://localhost/late"));
+    expect(response.status).toBe(200);
+  });
+
   it("keeps accepting an explicit connection", async () => {
     const { app, context } = echoApp();
     const connection = {
