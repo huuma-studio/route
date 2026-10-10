@@ -7,7 +7,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
+      - run: bun install
       - run: bun run check
       # Catches JSR publish errors (slow types, missing exports) before merge.
       - run: bunx jsr publish --dry-run
@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
+      - run: bun install
       # Includes test/workers, which runs the app in workerd without nodejs_compat.
       - run: bun test
   test-node:
@@ -28,6 +28,6 @@ jobs:
         with:
           node-version: lts/*
       - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
+      - run: bun install
       # Runs the node:http adapter tests on real Node.js.
       - run: bun run test:node
