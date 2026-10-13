@@ -18,32 +18,26 @@ export class Router<T extends AppContext> {
 
   list() {
     this.#routes.forEach((route) =>
-      log("ROUTE", `${route.method} ${route.path.pathname}`)
+      log("ROUTE", `${route.method} ${route.path.pathname}`),
     );
   }
-  add<P>(
-    toRoute: {
-      path: string;
-      method: HttpMethod;
-      handler: Handler<T>;
-    },
-  ): Route<T>;
-  add<P>(
-    toRoute: {
-      path: string;
-      method: HttpMethod;
-      controller: ControllerConstructor<P>;
-      handler: Handler<T> | ControllerProperty<P, T>;
-    },
-  ): Route<T>;
-  add<P>(
-    toRoute: {
-      path: string;
-      method: HttpMethod;
-      controller?: ControllerConstructor<P>;
-      handler: Handler<T> | ControllerProperty<P, T>;
-    },
-  ): Route<T> {
+  add<P>(toRoute: {
+    path: string;
+    method: HttpMethod;
+    handler: Handler<T>;
+  }): Route<T>;
+  add<P>(toRoute: {
+    path: string;
+    method: HttpMethod;
+    controller: ControllerConstructor<P>;
+    handler: Handler<T> | ControllerProperty<P, T>;
+  }): Route<T>;
+  add<P>(toRoute: {
+    path: string;
+    method: HttpMethod;
+    controller?: ControllerConstructor<P>;
+    handler: Handler<T> | ControllerProperty<P, T>;
+  }): Route<T> {
     let handler: Handler<T>;
 
     if (typeof toRoute.handler === "function") {
@@ -52,7 +46,7 @@ export class Router<T extends AppContext> {
       handler = (ctx: RequestContext<T>) => {
         if (toRoute.controller) {
           const controller = new toRoute.controller();
-          const func = controller[<ControllerProperty<P, T>> toRoute.handler];
+          const func = controller[<ControllerProperty<P, T>>toRoute.handler];
           if (typeof func === "function") {
             return func.bind(controller)(ctx);
           }

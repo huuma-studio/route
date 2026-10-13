@@ -30,14 +30,13 @@ export function bodyParser(
     if (!ctx.request.body) {
       return next();
     }
-    const buffer = await readToMaxSize(
-      ctx.request.body,
-      options.maxBodySize,
-    );
+    const buffer = await readToMaxSize(ctx.request.body, options.maxBodySize);
     if (options.keepRaw) {
       ctx.rawContent = buffer;
     }
-    const contentType = ctx.request.headers.get("content-type")?.split(" ")[0]
+    const contentType = ctx.request.headers
+      .get("content-type")
+      ?.split(" ")[0]
       ?.replace(";", "");
     if (contentType) {
       const parser = options.paser?.find((parser) => {

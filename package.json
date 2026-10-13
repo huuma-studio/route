@@ -3,7 +3,6 @@
   "private": true,
   "description": "Development tooling only. @huuma/route is published to JSR from jsr.json.",
   "type": "module",
-  "packageManager": "bun@1.4.3",
   "scripts": {
     "check": "vp check",
     "test": "vp test",
@@ -19,5 +18,6 @@
   },
   "overrides": {
     "vite": "npm:@voidzero-dev/vite-plus-core@1.1.0"
-  }
+  },
+  "packageManager": "bun@1.4.3"
 }

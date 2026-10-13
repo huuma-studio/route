@@ -35,9 +35,9 @@ describe("Favicon", () => {
     const app = new App();
     Favicon(join(tmpdir(), "huuma-route-missing-favicon.ico"), app);
 
-    const consoleError = vi.spyOn(console, "error").mockImplementation(
-      () => {},
-    );
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     try {
       const response = await getFavicon(app);
       await response.body?.cancel();

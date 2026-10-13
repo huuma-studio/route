@@ -37,9 +37,8 @@ describe("isProd", () => {
 
 describe("isEnvironment", () => {
   it("returns true for the active environment", () => {
-    withEnvironment(
-      "STAGING",
-      () => expect(isEnvironment("STAGING")).toBe(true),
+    withEnvironment("STAGING", () =>
+      expect(isEnvironment("STAGING")).toBe(true),
     );
   });
 

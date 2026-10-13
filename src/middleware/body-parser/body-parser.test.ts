@@ -27,9 +27,10 @@ describe("Body Parser:", () => {
 
   it('reject if body exceededs max size with "EntityTooLargeException"', async () => {
     await expect(
-      bodyParser({ maxBodySize: 2 })(contextOf('"a"'), next) as Promise<
-        Response
-      >,
+      bodyParser({ maxBodySize: 2 })(
+        contextOf('"a"'),
+        next,
+      ) as Promise<Response>,
     ).rejects.toThrow(EntityTooLargeException);
   });
 

@@ -162,9 +162,9 @@ describe("RequestContext.waitUntil without an execution context", () => {
   it("logs a rejected promise instead of leaving it unhandled", async () => {
     const { app, context } = echoApp();
     await app.fetch(request());
-    const consoleError = vi.spyOn(console, "error").mockImplementation(
-      () => {},
-    );
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     try {
       context().waitUntil(Promise.reject(new Error("background failure")));
       await new Promise((resolve) => setTimeout(resolve, 0));

@@ -11,8 +11,8 @@ const { exports } = JSON.parse(
   await readFile(new URL("../jsr.json", import.meta.url), "utf8"),
 ) as { exports: Record<string, string> };
 
-const coreExports = Object.entries(exports).filter(([name]) =>
-  !NODE_EXPORTS.test(name)
+const coreExports = Object.entries(exports).filter(
+  ([name]) => !NODE_EXPORTS.test(name),
 );
 
 describe("runtime-neutral core", () => {

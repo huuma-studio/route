@@ -9,8 +9,9 @@ describe("HttpProtocol deprecated body-parser options:", () => {
   });
 
   it("throws when bodyParserOptions is set without useDefaultBodyParser", () => {
-    expect(() => new HttpProtocol({ bodyParserOptions: { maxBodySize: 2048 } }))
-      .toThrow("useDefaultBodyParser");
+    expect(
+      () => new HttpProtocol({ bodyParserOptions: { maxBodySize: 2048 } }),
+    ).toThrow("useDefaultBodyParser");
   });
 
   it("does not throw when useDefaultBodyParser is true with rawBody", () => {

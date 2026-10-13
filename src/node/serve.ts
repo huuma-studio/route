@@ -119,7 +119,7 @@ async function respond(
     await writeResponse(response, res);
   } catch (e) {
     // A failure fails this request only, never the server.
-    error("NODE", e instanceof Error ? e.stack ?? e.message : String(e));
+    error("NODE", e instanceof Error ? (e.stack ?? e.message) : String(e));
     if (res.headersSent) {
       res.destroy();
     } else {
@@ -147,18 +147,19 @@ function toRequest(req: IncomingMessage, signal: AbortSignal): Request {
   // asterisk-form of `OPTIONS *` becomes the path `/*`, and absolute-form
   // targets (`http://host/path`) are parsed as they are.
   const target = req.url ?? "/";
-  const url = target === "*"
-    ? new URL(`http://${host}/*`)
-    : target.startsWith("/")
-    ? new URL(`http://${host}${target}`)
-    : new URL(target);
+  const url =
+    target === "*"
+      ? new URL(`http://${host}/*`)
+      : target.startsWith("/")
+        ? new URL(`http://${host}${target}`)
+        : new URL(target);
 
   return new Request(url, {
     method,
     headers,
     signal,
     body: hasBody
-      ? Readable.toWeb(req) as unknown as ReadableStream<Uint8Array>
+      ? (Readable.toWeb(req) as unknown as ReadableStream<Uint8Array>)
       : null,
     // Required by Node's fetch for streaming request bodies.
     ...(hasBody ? { duplex: "half" } : {}),

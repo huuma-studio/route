@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
 import { withDeniedEnv } from "../../test/env.ts";
 
 const ENV_VAR = "HUUMA_LOG_LEVEL";
@@ -9,9 +16,7 @@ type Environment = typeof import("./environment.ts");
 
 // Each test gets fresh logger and environment modules, so the lazily resolved
 // level, `setLogLevel` calls and `setEnv` overrides don't leak between tests.
-async function load(): Promise<
-  { logger: Logger; environment: Environment }
-> {
+async function load(): Promise<{ logger: Logger; environment: Environment }> {
   vi.resetModules();
   return {
     logger: await import("./logger.ts"),
@@ -32,7 +37,7 @@ function withCountedSinks(fn: () => void): Record<SinkName, number> {
   const spies = (Object.keys(calls) as SinkName[]).map((name) =>
     vi.spyOn(console, name).mockImplementation(() => {
       calls[name]++;
-    })
+    }),
   );
   try {
     fn();

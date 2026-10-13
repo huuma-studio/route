@@ -38,8 +38,9 @@ describe("readableStream", () => {
 
 describe("isNodeError", () => {
   it("matches the errno code of filesystem errors", async () => {
-    const error = await open(join(tmpdir(), "huuma-route-missing-file"))
-      .catch((e) => e);
+    const error = await open(join(tmpdir(), "huuma-route-missing-file")).catch(
+      (e) => e,
+    );
     expect(isNodeError(error, "ENOENT")).toBe(true);
     expect(isNodeError(error, "EACCES")).toBe(false);
   });
