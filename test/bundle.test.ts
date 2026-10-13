@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { build } from "esbuild";
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vite-plus/test";
 
 // Exports that may use node:* built-ins. Everything else is the runtime-neutral
 // core and must bundle for any platform, including Cloudflare Workers without

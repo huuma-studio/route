@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
   isEnvironment,
   isProd,

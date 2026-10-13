@@ -10,7 +10,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
-import { describe, expect, it, spyOn } from "bun:test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { App } from "../../app.ts";
 import { loadStaticFiles, registerStaticFiles } from "./static-files.ts";
 
@@ -158,7 +158,7 @@ describe("loadStaticFiles", () => {
 
   it("logs instead of throwing for a missing directory", async () => {
     const messages: string[] = [];
-    const warn = spyOn(console, "warn").mockImplementation((message) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation((message) => {
       messages.push(message);
     });
     try {

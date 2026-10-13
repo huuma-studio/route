@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vite-plus/test";
 import { extension, name } from "./file.ts";
 
 // Expected values match `@std/path/posix` `parse`, which this module replaced.

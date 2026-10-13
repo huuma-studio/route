@@ -1,7 +1,7 @@
 import { mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vite-plus/test";
 import { isNodeError, readableStream } from "./file-stream.ts";
 
 const CONTENT = "Hello, Huuma!";

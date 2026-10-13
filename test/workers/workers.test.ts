@@ -1,6 +1,6 @@
 import { build } from "esbuild";
 import { convertV4MiniflareOptions, Miniflare } from "miniflare";
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 // Since compatibility date 2026-08-04, Node.js compatibility is on by default;
 // both flags are needed to run without it, like a Worker without `nodejs_compat`.

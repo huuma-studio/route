@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vite-plus/test";
 import { EntityTooLargeException } from "../../http/exceptions/entity-too-large-exception.ts";
 import type { RequestContext } from "../../http/request.ts";
 import { bodyParser } from "./body-parser.ts";

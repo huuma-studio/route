@@ -1,11 +1,9 @@
-// Uses node:test so the adapter runs on real Node.js (`bun run test:node`)
-// as well as on Bun (`bun test`).
 import assert from "node:assert/strict";
 import { request as httpRequest } from "node:http";
 import { createServer as createNetServer } from "node:net";
-import { afterEach, describe, it } from "node:test";
 import { App } from "../app.ts";
 import { type NodeServer, serve } from "./serve.ts";
+import { afterEach, describe, it } from "vite-plus/test";
 
 let server: NodeServer | undefined;
 
@@ -187,11 +185,9 @@ describe("serve", () => {
     assert.equal(await rawGet(base, "//foo/bar"), `${host} //foo/bar`);
   });
 
-  it("routes OPTIONS * to the path /*", {
-    // Bun's HTTP server answers asterisk-form requests with 400 before any
-    // JavaScript runs, so only real Node.js can pass this to the adapter.
-    skip: "Bun" in globalThis && "Bun rejects OPTIONS * itself",
-  }, async () => {
+  // Bun's HTTP server answers asterisk-form requests with 400 before any
+  // JavaScript runs, so only real Node.js can pass this to the adapter.
+  it.skipIf("Bun" in globalThis)("routes OPTIONS * to the path /*", async () => {
     const app = new App();
     app.options("/*", (ctx) => new Response(new URL(ctx.request.url).pathname));
     const base = await start(app);

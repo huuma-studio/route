@@ -1,23 +1,22 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { withDeniedEnv } from "../../test/env.ts";
 
 const ENV_VAR = "HUUMA_LOG_LEVEL";
 const HUUMA_ENV = "HUUMA_ENV";
 
-import * as environment from "./environment.ts";
-
 type Logger = typeof import("./logger.ts");
+type Environment = typeof import("./environment.ts");
 
-let instance = 0;
-
-// Each test gets a fresh logger module (Bun creates a new instance per query
-// string), so the lazily resolved level and `setLogLevel` calls don't leak
-// between tests. `setEnv` overrides are shared and cleared after each test.
+// Each test gets fresh logger and environment modules, so the lazily resolved
+// level, `setLogLevel` calls and `setEnv` overrides don't leak between tests.
 async function load(): Promise<
-  { logger: Logger; environment: typeof environment }
+  { logger: Logger; environment: Environment }
 > {
-  const logger: Logger = await import(`./logger.ts?test=${instance++}`);
-  return { logger, environment };
+  vi.resetModules();
+  return {
+    logger: await import("./logger.ts"),
+    environment: await import("./environment.ts"),
+  };
 }
 
 type SinkName = "log" | "info" | "warn" | "error";
@@ -31,7 +30,7 @@ function withCountedSinks(fn: () => void): Record<SinkName, number> {
     error: 0,
   };
   const spies = (Object.keys(calls) as SinkName[]).map((name) =>
-    spyOn(console, name).mockImplementation(() => {
+    vi.spyOn(console, name).mockImplementation(() => {
       calls[name]++;
     })
   );
@@ -64,7 +63,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  environment.setEnv({ [ENV_VAR]: undefined, [HUUMA_ENV]: undefined });
   for (const [name, value] of Object.entries(original)) {
     if (value === undefined) delete process.env[name];
     else process.env[name] = value;
