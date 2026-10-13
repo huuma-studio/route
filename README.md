@@ -408,10 +408,10 @@ Contributions are welcome! Please open an issue or pull request on our GitHub re
 Development uses [Vite+](https://viteplus.dev) (`vp`), configured in `vite.config.ts`.
 
 ```bash
-bun install
-bun run check       # vp check: format, lint and type check (`vp check --fix` to fix)
-bun run test        # vp test: all tests on Node.js, including Workers tests in workerd via Miniflare
-bun run test:bun    # the same tests on the Bun runtime
+pnpm install
+pnpm check          # vp check: format, lint and type check (`vp check --fix` to fix)
+pnpm test           # vp test: all tests on Node.js, including Workers tests in workerd via Miniflare
+pnpm test:bun       # the same tests on the Bun runtime (needs Bun installed)
 ```
 
 This framework is still in development and APIs may change in future versions.

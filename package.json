@@ -13,11 +13,8 @@
     "esbuild": "0.28.2",
     "miniflare": "5.20261006.1-alpha",
     "typescript": "7.0.2",
-    "vite": "npm:@voidzero-dev/vite-plus-core@1.1.0",
-    "vite-plus": "1.1.0"
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
   },
-  "overrides": {
-    "vite": "npm:@voidzero-dev/vite-plus-core@1.1.0"
-  },
-  "packageManager": "bun@1.4.3"
+  "packageManager": "pnpm@12.8.1"
 }
