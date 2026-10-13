@@ -520,6 +520,43 @@ describe("writeResponse", () => {
 });
 
 describe("HTTP/2", () => {
+  for (const how of ["closes its stream", "drops the connection"]) {
+    it(`doesn't reject when the client ${how} while the body streams`, async () => {
+      let settled!: Promise<string>;
+      const http2 = createHttp2Server((_req, res) => {
+        const chunk = new TextEncoder().encode("partial");
+        const body = new ReadableStream({
+          pull: (controller) =>
+            new Promise((resolve) => setTimeout(resolve, 10)).then(() => {
+              controller.enqueue(chunk);
+            }),
+        });
+        settled = writeResponse(new Response(body), res).then(
+          () => "resolved",
+          (error: Error) => error.message,
+        );
+      });
+      await new Promise<void>((resolve) =>
+        http2.listen(0, "127.0.0.1", resolve),
+      );
+      servers.push(http2);
+      const { port } = http2.address() as { port: number };
+
+      const client = connectHttp2(`http://127.0.0.1:${port}`);
+      client.on("error", () => {});
+      try {
+        const stream = client.request({ ":path": "/" });
+        stream.on("error", () => {});
+        await new Promise((resolve) => stream.once("data", resolve));
+        if (how === "closes its stream") stream.close();
+        else client.destroy();
+        assert.equal(await settled, "resolved");
+      } finally {
+        client.destroy();
+      }
+    });
+  }
+
   it("converts requests and responses without warnings", async () => {
     const warnings: string[] = [];
     const onWarning = (warning: Error) => warnings.push(warning.message);
