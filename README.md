@@ -59,6 +59,46 @@ await server.shutdown(); // or pass an AbortSignal as `signal`
 
 `Deno.serve(app.init())` and `app.handle(request, connection)` keep working.
 
+To serve an app from your own Node.js server or middleware, such as a Vite or Express middleware, convert the request and response with `toRequest` and `writeResponse`. Both work with `node:http` and with `node:http2`'s compatibility API, and keep the `https` scheme of requests over TLS:
+
+```typescript
+import { toRequest, writeResponse } from "@huuma/route/node";
+
+async function middleware(req, res, next) {
+  // Aborts the request's signal when the client goes away.
+  const controller = new AbortController();
+  res.once("close", () => {
+    if (!res.writableFinished) controller.abort();
+  });
+
+  let request;
+  try {
+    request = toRequest(req, controller.signal);
+  } catch {
+    // A request target such as `foo`, which isn't a URL.
+    res.writeHead(400);
+    res.end();
+    return;
+  }
+
+  try {
+    const response = await app.fetch(request, {
+      remoteAddr: {
+        transport: "tcp",
+        hostname: req.socket.remoteAddress,
+        port: req.socket.remotePort,
+      },
+    });
+    await writeResponse(response, res);
+  } catch (error) {
+    // The body failed while streaming: the headers are sent, so end the
+    // truncated response. Otherwise nothing was written yet.
+    if (res.headersSent) res.destroy();
+    else next(error);
+  }
+}
+```
+
 ## Routing
 
 Huuma/Route comes with a flexible routing system that supports all standard HTTP methods:
