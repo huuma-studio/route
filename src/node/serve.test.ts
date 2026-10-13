@@ -520,6 +520,41 @@ describe("writeResponse", () => {
 });
 
 describe("HTTP/2", () => {
+  it("streams request bodies", async () => {
+    const http2 = createHttp2Server(async (req, res) => {
+      const request = toRequest(req, new AbortController().signal);
+      const body = await request.text();
+      await writeResponse(
+        new Response(`${request.method} ${body.length} ${body.slice(-3)}`),
+        res,
+      );
+    });
+    await new Promise<void>((resolve) => http2.listen(0, "127.0.0.1", resolve));
+    servers.push(http2);
+    const { port } = http2.address() as { port: number };
+
+    const client = connectHttp2(`http://127.0.0.1:${port}`);
+    try {
+      const body = await new Promise<string>((resolve, reject) => {
+        const stream = client.request({
+          ":method": "POST",
+          ":path": "/upload",
+        });
+        let text = "";
+        stream.setEncoding("utf8");
+        stream.on("data", (data: string) => (text += data));
+        stream.once("end", () => resolve(text));
+        stream.once("error", reject);
+        // Several frames, so the body arrives in chunks.
+        stream.write("a".repeat(100_000));
+        stream.end("end");
+      });
+      assert.equal(body, "POST 100003 end");
+    } finally {
+      client.close();
+    }
+  });
+
   for (const how of ["closes its stream", "drops the connection"]) {
     it(`doesn't reject when the client ${how} while the body streams`, async () => {
       let settled!: Promise<string>;
