@@ -1,5 +1,6 @@
 import type { AppContext } from "../app.ts";
-import type { ProtocolConnectionInfo } from "../protocol.ts";
+import type { ProtocolConnectionInfo, ProtocolPlatform } from "../protocol.ts";
+import { error } from "../utils/logger.ts";
 import type { HttpMethod } from "./http-method.ts";
 import type { Route } from "./route.ts";
 
@@ -35,6 +36,11 @@ interface Set<T extends AppContext> {
   <Key extends keyof T["State"]>(key: Key, value: T["State"][Key]): void;
 }
 
+/** The platform bindings type of an app, set through the `Env` key of its `AppContext`. */
+export type EnvOf<T extends AppContext> = T extends
+  { Env?: infer E extends Record<string, unknown> } ? E
+  : Record<string, unknown>;
+
 export class RequestContext<
   // deno-lint-ignore no-explicit-any
   T extends AppContext = any,
@@ -49,6 +55,14 @@ export class RequestContext<
     return this.#connection;
   }
 
+  #env: EnvOf<T>;
+  /** Platform bindings, such as the Cloudflare Workers `env`. Empty when the platform has none. */
+  get env(): EnvOf<T> {
+    return this.#env;
+  }
+
+  #waitUntil?: (promise: Promise<unknown>) => void;
+
   #state?: T["State"];
 
   params?: UrlParams;
@@ -57,10 +71,36 @@ export class RequestContext<
   auth?: unknown;
   search?: SearchParams;
 
-  constructor(request: Request, connection: ProtocolConnectionInfo) {
+  constructor(
+    request: Request,
+    connection?: ProtocolConnectionInfo,
+    platform?: ProtocolPlatform,
+  ) {
     this.#request = request;
-    this.#connection = connection;
+    this.#connection = connection ?? { remoteAddr: { transport: "tcp" } };
+    this.#env = (platform?.env ?? {}) as EnvOf<T>;
+    this.#waitUntil = platform?.waitUntil;
   }
+
+  /**
+   * Keeps work running after the response is sent. Forwards to `ctx.waitUntil`
+   * on Cloudflare Workers; elsewhere the promise keeps running and a rejection
+   * is logged.
+   */
+  waitUntil = (promise: Promise<unknown>): void => {
+    if (this.#waitUntil) {
+      this.#waitUntil(promise);
+      return;
+    }
+    promise.catch((reason: unknown) => {
+      error(
+        "WAIT UNTIL",
+        reason instanceof Error
+          ? reason.stack ?? reason.message
+          : String(reason),
+      );
+    });
+  };
 
   set: Set<T> = (key: string, value: unknown) => {
     this.#state ??= {};

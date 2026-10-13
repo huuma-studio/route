@@ -12,6 +12,12 @@ export type ProtocolRemoteAddress = {
   port?: number;
 };
 
+/** Platform values passed to a request, such as Cloudflare Workers bindings and `waitUntil`. */
+export type ProtocolPlatform = {
+  env?: Record<string, unknown>;
+  waitUntil?: (promise: Promise<unknown>) => void;
+};
+
 export enum HookType {
   APPLICATION_INIT = "application:init",
   REQUEST_SUCCESS = "request:success",
@@ -22,7 +28,8 @@ export enum HookType {
 export type Protocol<T extends AppContext> = {
   handle(
     request: Request,
-    connection: ProtocolConnectionInfo,
+    connection?: ProtocolConnectionInfo,
+    platform?: ProtocolPlatform,
   ): Promise<Response>;
   middleware(middleware: Middleware[] | Middleware): Protocol<T>;
   router: Router<T>;

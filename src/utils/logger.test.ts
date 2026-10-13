@@ -1,32 +1,23 @@
-import { assert } from "@std/assert";
-import { isProd } from "./environment.ts";
-import {
-  debug,
-  error,
-  fatal,
-  getLogLevel,
-  info,
-  log,
-  LogLevel,
-  setLogLevel,
-  trace,
-  warn,
-} from "./logger.ts";
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { withDeniedEnv } from "../../test/env.ts";
 
 const ENV_VAR = "HUUMA_LOG_LEVEL";
 const HUUMA_ENV = "HUUMA_ENV";
 
-function resetLogLevel() {
-  Deno.env.delete(ENV_VAR);
-  setLogLevel(isProd() ? LogLevel.INFO : LogLevel.DEBUG);
-}
+import * as environment from "./environment.ts";
 
-function restoreEnv(name: string, value: string | undefined): void {
-  if (value === undefined) {
-    Deno.env.delete(name);
-  } else {
-    Deno.env.set(name, value);
-  }
+type Logger = typeof import("./logger.ts");
+
+let instance = 0;
+
+// Each test gets a fresh logger module (Bun creates a new instance per query
+// string), so the lazily resolved level and `setLogLevel` calls don't leak
+// between tests. `setEnv` overrides are shared and cleared after each test.
+async function load(): Promise<
+  { logger: Logger; environment: typeof environment }
+> {
+  const logger: Logger = await import(`./logger.ts?test=${instance++}`);
+  return { logger, environment };
 }
 
 type SinkName = "log" | "info" | "warn" | "error";
@@ -39,129 +30,130 @@ function withCountedSinks(fn: () => void): Record<SinkName, number> {
     warn: 0,
     error: 0,
   };
-  const original = {
-    log: console.log,
-    info: console.info,
-    warn: console.warn,
-    error: console.error,
-  };
-  console.log = () => calls.log++;
-  console.info = () => calls.info++;
-  console.warn = () => calls.warn++;
-  console.error = () => calls.error++;
+  const spies = (Object.keys(calls) as SinkName[]).map((name) =>
+    spyOn(console, name).mockImplementation(() => {
+      calls[name]++;
+    })
+  );
   try {
     fn();
   } finally {
-    console.log = original.log;
-    console.info = original.info;
-    console.warn = original.warn;
-    console.error = original.error;
+    spies.forEach((spy) => spy.mockRestore());
   }
   return calls;
 }
 
-Deno.test({
-  name: "defaults to DEBUG when env permission is denied",
-  permissions: { env: false },
-  async fn() {
-    const logger = await import("./logger.ts?env-permission-denied");
-    assert(logger.getLogLevel() === logger.LogLevel.DEBUG);
-  },
+function emitAll(logger: Logger): void {
+  logger.trace("CTX", "trace msg");
+  logger.debug("CTX", "debug msg");
+  logger.info("CTX", "info msg");
+  logger.warn("CTX", "warn msg");
+  logger.error("CTX", "error msg");
+  logger.fatal("CTX", "fatal msg");
+}
+
+let original: Record<string, string | undefined>;
+
+beforeEach(() => {
+  original = {
+    [ENV_VAR]: process.env[ENV_VAR],
+    [HUUMA_ENV]: process.env[HUUMA_ENV],
+  };
+  delete process.env[ENV_VAR];
+  delete process.env[HUUMA_ENV];
 });
 
-Deno.test("log level", async (t) => {
-  const originalLogLevel = getLogLevel();
-  const originalLogLevelEnv = Deno.env.get(ENV_VAR);
-  const originalHuumaEnv = Deno.env.get(HUUMA_ENV);
-
-  try {
-    await t.step("defaults to DEBUG when not in prod and no env var", () => {
-      Deno.env.delete(ENV_VAR);
-      Deno.env.set(HUUMA_ENV, "DEV");
-      setLogLevel(isProd() ? LogLevel.INFO : LogLevel.DEBUG);
-      assert(getLogLevel() === LogLevel.DEBUG);
-      resetLogLevel();
-    });
-
-    await t.step("defaults to INFO in prod when no env var", () => {
-      Deno.env.delete(ENV_VAR);
-      Deno.env.set(HUUMA_ENV, "PROD");
-      setLogLevel(isProd() ? LogLevel.INFO : LogLevel.DEBUG);
-      assert(getLogLevel() === LogLevel.INFO);
-      resetLogLevel();
-    });
-
-    await t.step("setLogLevel takes effect at runtime", () => {
-      setLogLevel(LogLevel.WARN);
-      assert(getLogLevel() === LogLevel.WARN);
-      resetLogLevel();
-    });
-
-    await t.step("only emits at or above the configured level", () => {
-      setLogLevel(LogLevel.WARN);
-      const calls = withCountedSinks(() => {
-        trace("CTX", "trace msg");
-        debug("CTX", "debug msg");
-        info("CTX", "info msg");
-        warn("CTX", "warn msg");
-        error("CTX", "error msg");
-        fatal("CTX", "fatal msg");
-      });
-
-      assert(calls.log === 0); // trace/debug below WARN
-      assert(calls.info === 0); // info below WARN
-      assert(calls.warn === 1); // warn emitted
-      assert(calls.error === 2); // error and fatal emitted
-      resetLogLevel();
-    });
-
-    await t.step("emits all levels at TRACE threshold", () => {
-      setLogLevel(LogLevel.TRACE);
-      const calls = withCountedSinks(() => {
-        trace("CTX", "trace msg");
-        debug("CTX", "debug msg");
-        info("CTX", "info msg");
-        warn("CTX", "warn msg");
-        error("CTX", "error msg");
-        fatal("CTX", "fatal msg");
-      });
-
-      // trace + debug both route to console.log
-      assert(calls.log === 2);
-      assert(calls.info === 1);
-      assert(calls.warn === 1);
-      assert(calls.error === 2);
-      resetLogLevel();
-    });
-
-    await t.step("nothing is emitted when level is above FATAL", () => {
-      // Use a value higher than any real level to suppress everything.
-      setLogLevel(LogLevel.FATAL + 1);
-      const calls = withCountedSinks(() => {
-        trace("CTX", "trace msg");
-        debug("CTX", "debug msg");
-        info("CTX", "info msg");
-        warn("CTX", "warn msg");
-        error("CTX", "error msg");
-        fatal("CTX", "fatal msg");
-      });
-
-      assert(calls.log === 0);
-      assert(calls.info === 0);
-      assert(calls.warn === 0);
-      assert(calls.error === 0);
-      resetLogLevel();
-    });
-
-    await t.step("`log` is a debug alias", () => {
-      setLogLevel(LogLevel.DEBUG);
-      const calls = withCountedSinks(() => log("CTX", "log msg"));
-      assert(calls.log === 1);
-      resetLogLevel();
-    });
-  } finally {
-    restoreEnv(ENV_VAR, originalLogLevelEnv);
-    restoreEnv(HUUMA_ENV, originalHuumaEnv);
-    setLogLevel(originalLogLevel);
+afterEach(() => {
+  environment.setEnv({ [ENV_VAR]: undefined, [HUUMA_ENV]: undefined });
+  for (const [name, value] of Object.entries(original)) {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
   }
+});
+
+describe("log level", () => {
+  it("defaults to DEBUG when not in prod and no env var", async () => {
+    process.env[HUUMA_ENV] = "DEV";
+    const { logger } = await load();
+    expect(logger.getLogLevel()).toBe(logger.LogLevel.DEBUG);
+  });
+
+  it("defaults to INFO in prod when no env var", async () => {
+    process.env[HUUMA_ENV] = "PROD";
+    const { logger } = await load();
+    expect(logger.getLogLevel()).toBe(logger.LogLevel.INFO);
+  });
+
+  it("reads HUUMA_LOG_LEVEL case-insensitively", async () => {
+    process.env[ENV_VAR] = "warn";
+    const { logger } = await load();
+    expect(logger.getLogLevel()).toBe(logger.LogLevel.WARN);
+  });
+
+  it("defaults to DEBUG when env access is denied", async () => {
+    const { logger } = await load();
+    withDeniedEnv(() => {
+      expect(logger.getLogLevel()).toBe(logger.LogLevel.DEBUG);
+    });
+  });
+
+  it("resolves the level on first use instead of at import", async () => {
+    const { logger } = await load();
+    process.env[ENV_VAR] = "ERROR";
+    expect(logger.getLogLevel()).toBe(logger.LogLevel.ERROR);
+  });
+
+  it("re-resolves the level after setEnv", async () => {
+    const { logger, environment } = await load();
+    expect(logger.getLogLevel()).toBe(logger.LogLevel.DEBUG);
+
+    environment.setEnv({ [ENV_VAR]: "WARN" });
+    expect(logger.getLogLevel()).toBe(logger.LogLevel.WARN);
+
+    environment.setEnv({ [ENV_VAR]: undefined, [HUUMA_ENV]: "PROD" });
+    expect(logger.getLogLevel()).toBe(logger.LogLevel.INFO);
+  });
+
+  it("setLogLevel takes precedence over the environment", async () => {
+    const { logger, environment } = await load();
+    logger.setLogLevel(logger.LogLevel.WARN);
+    environment.setEnv({ [ENV_VAR]: "TRACE" });
+    expect(logger.getLogLevel()).toBe(logger.LogLevel.WARN);
+  });
+
+  it("only emits at or above the configured level", async () => {
+    const { logger } = await load();
+    logger.setLogLevel(logger.LogLevel.WARN);
+    const calls = withCountedSinks(() => emitAll(logger));
+
+    expect(calls.log).toBe(0); // trace/debug below WARN
+    expect(calls.info).toBe(0); // info below WARN
+    expect(calls.warn).toBe(1); // warn emitted
+    expect(calls.error).toBe(2); // error and fatal emitted
+  });
+
+  it("emits all levels at TRACE threshold", async () => {
+    const { logger } = await load();
+    logger.setLogLevel(logger.LogLevel.TRACE);
+    const calls = withCountedSinks(() => emitAll(logger));
+
+    // trace + debug both route to console.log
+    expect(calls).toEqual({ log: 2, info: 1, warn: 1, error: 2 });
+  });
+
+  it("nothing is emitted when level is above FATAL", async () => {
+    const { logger } = await load();
+    // Use a value higher than any real level to suppress everything.
+    logger.setLogLevel(logger.LogLevel.FATAL + 1);
+    const calls = withCountedSinks(() => emitAll(logger));
+
+    expect(calls).toEqual({ log: 0, info: 0, warn: 0, error: 0 });
+  });
+
+  it("`log` is a debug alias", async () => {
+    const { logger } = await load();
+    logger.setLogLevel(logger.LogLevel.DEBUG);
+    const calls = withCountedSinks(() => logger.log("CTX", "log msg"));
+    expect(calls.log).toBe(1);
+  });
 });

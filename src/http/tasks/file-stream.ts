@@ -8,7 +8,9 @@ import { Readable } from "node:stream";
 export function readableStream(
   handle: FileHandle,
 ): ReadableStream<Uint8Array<ArrayBuffer>> {
-  return Readable.toWeb(handle.createReadStream()) as ReadableStream<
+  // Node's stream/web types differ from the Web types; the runtime object is
+  // a standard ReadableStream.
+  return Readable.toWeb(handle.createReadStream()) as unknown as ReadableStream<
     Uint8Array<ArrayBuffer>
   >;
 }

@@ -1,18 +1,16 @@
-import { assertEquals } from "@std/assert";
-
+import { describe, expect, it } from "bun:test";
 import { getSearchParams } from "./request.ts";
 
-Deno.test("Request Helper:", async (t) => {
-  await t.step("Search param: ref=https:huuma.io", () => {
-    assertEquals(
+describe("Request Helper:", () => {
+  it("Search param: ref=https:huuma.io", () => {
+    expect(
       getSearchParams(
         new Request("https://huuma.io?ref=https://huuma.io", {
           method: "GET",
         }),
       ),
-      {
-        ref: "https://huuma.io",
-      },
-    );
+    ).toEqual({
+      ref: "https://huuma.io",
+    });
   });
 });

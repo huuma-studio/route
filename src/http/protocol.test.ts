@@ -1,48 +1,34 @@
-import { assertThrows } from "@std/assert";
+import { describe, expect, it } from "bun:test";
 import { HttpProtocol } from "./protocol.ts";
 
-Deno.test("HttpProtocol deprecated body-parser options:", async (t) => {
-  await t.step("throws when rawBody is set without useDefaultBodyParser", () => {
-    assertThrows(
-      () => new HttpProtocol({ rawBody: true }),
-      Error,
+describe("HttpProtocol deprecated body-parser options:", () => {
+  it("throws when rawBody is set without useDefaultBodyParser", () => {
+    expect(() => new HttpProtocol({ rawBody: true })).toThrow(
       "useDefaultBodyParser",
     );
   });
 
-  await t.step(
-    "throws when bodyParserOptions is set without useDefaultBodyParser",
-    () => {
-      assertThrows(
-        () => new HttpProtocol({ bodyParserOptions: { maxBodySize: 2048 } }),
-        Error,
-        "useDefaultBodyParser",
-      );
-    },
-  );
+  it("throws when bodyParserOptions is set without useDefaultBodyParser", () => {
+    expect(() => new HttpProtocol({ bodyParserOptions: { maxBodySize: 2048 } }))
+      .toThrow("useDefaultBodyParser");
+  });
 
-  await t.step(
-    "does not throw when useDefaultBodyParser is true with rawBody",
-    () => {
-      new HttpProtocol({ useDefaultBodyParser: true, rawBody: true });
-    },
-  );
+  it("does not throw when useDefaultBodyParser is true with rawBody", () => {
+    new HttpProtocol({ useDefaultBodyParser: true, rawBody: true });
+  });
 
-  await t.step(
-    "does not throw when useDefaultBodyParser is true with bodyParserOptions",
-    () => {
-      new HttpProtocol({
-        useDefaultBodyParser: true,
-        bodyParserOptions: { maxBodySize: 2048 },
-      });
-    },
-  );
+  it("does not throw when useDefaultBodyParser is true with bodyParserOptions", () => {
+    new HttpProtocol({
+      useDefaultBodyParser: true,
+      bodyParserOptions: { maxBodySize: 2048 },
+    });
+  });
 
-  await t.step("does not throw with no options", () => {
+  it("does not throw with no options", () => {
     new HttpProtocol();
   });
 
-  await t.step("does not throw with only useDefaultBodyParser: true", () => {
+  it("does not throw with only useDefaultBodyParser: true", () => {
     new HttpProtocol({ useDefaultBodyParser: true });
   });
 });

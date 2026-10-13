@@ -1,6 +1,6 @@
 # Huuma/Route
 
-A flexible, modern web framework for building web applications with Deno and TypeScript.
+A flexible, modern web framework for building web applications with TypeScript. It runs on Deno, Node.js, Bun and Cloudflare Workers.
 
 ## Features
 
@@ -13,9 +13,15 @@ A flexible, modern web framework for building web applications with Deno and Typ
 
 ## Installation
 
-```typescript
-import { App } from "jsr:@huuma/route@^0.0.1";
+Huuma/Route is published on [JSR](https://jsr.io/@huuma/route).
+
+```bash
+deno add jsr:@huuma/route       # Deno
+npx jsr add @huuma/route        # Node.js (npm); pnpm and Yarn support jsr: natively
+bunx jsr add @huuma/route       # Bun
 ```
+
+Node.js needs version 24 or later (for the global `URLPattern`).
 
 ## Basic Usage
 
@@ -32,6 +38,26 @@ app.get("/", (ctx) => {
 // Start the server
 Deno.serve(app.init());
 ```
+
+## Runtimes
+
+`App` has a standard `fetch(request, ...)` handler, so the same app runs on every runtime. It initializes the app on the first request.
+
+```typescript
+// Cloudflare Workers, Bun and `deno serve`
+export default app;
+```
+
+On Node.js, serve it with the `node:http` adapter:
+
+```typescript
+import { serve } from "@huuma/route/node";
+
+const server = await serve(app, { port: 8000 }); // defaults: port 8000, hostname 0.0.0.0
+await server.shutdown(); // or pass an AbortSignal as `signal`
+```
+
+`Deno.serve(app.init())` and `app.handle(request, connection)` keep working.
 
 ## Routing
 
@@ -159,6 +185,20 @@ app.get("/users/:id", (ctx) => {
 });
 ```
 
+`ctx.env` holds the platform bindings, such as the Cloudflare Workers `env` (`{}` on other runtimes). Type it through the `Env` key of the app context. `ctx.waitUntil(promise)` keeps work running after the response: it forwards to `ctx.waitUntil` on Workers, and elsewhere lets the promise run and logs a rejection.
+
+```typescript
+type Env = { DB: D1Database };
+const app = new App<{ Env: Env }>();
+
+app.post("/events", (ctx) => {
+  ctx.waitUntil(ctx.env.DB.prepare("INSERT INTO events DEFAULT VALUES").run());
+  return new Response(null, { status: 202 });
+});
+```
+
+`ctx.connection.remoteAddr` holds the client address when the runtime provides it (Deno, Bun, the Node adapter, and `CF-Connecting-IP` on Workers).
+
 ## Error Handling
 
 Huuma/Route includes built-in exception handling:
@@ -195,14 +235,14 @@ Built-in exceptions:
 
 ## Static Files
 
-Serve static files easily:
+Serve static files easily on Deno, Node.js and Bun (these tasks read from the filesystem):
 
 ```typescript
 import { loadAssets } from "jsr:@huuma/route/http/tasks/assets";
 import { Favicon } from "jsr:@huuma/route/http/tasks/favicon";
 
 // Serve all files from the 'public' directory
-await loadAssets("public", app);
+await loadAssets(app, { directory: "public" });
 
 // Serve a favicon
 Favicon("public/favicon.ico", app);
@@ -285,7 +325,7 @@ app
 
 ## Logging
 
-Huuma/Route logs framework events through a built-in logger with severity levels. By default the logger is verbose (`DEBUG`) so you see everything during development. When environment access is granted, the logger uses `isProd()` to read `HUUMA_ENV` and switches to `INFO` when `HUUMA_ENV=PROD`. Without environment access, production mode cannot affect the log level and the logger retains the default `DEBUG` level. Set the `HUUMA_LOG_LEVEL` environment variable to control the threshold explicitly — only messages at that level or higher are emitted.
+Huuma/Route logs framework events through a built-in logger with severity levels. By default the logger is verbose (`DEBUG`) so you see everything during development. When environment access is granted, the logger uses `isProd()` to read `HUUMA_ENV` and switches to `INFO` when `HUUMA_ENV=PROD`. Without environment access, production mode cannot affect the log level and the logger retains the default `DEBUG` level. Set the `HUUMA_LOG_LEVEL` environment variable to control the threshold explicitly — only messages at that level or higher are emitted. The level is resolved when the logger is first used and again after `setEnv` changes the environment.
 
 Available levels, from most to least verbose: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
 
@@ -327,7 +367,34 @@ if (isEnvironment("STAGING")) {
 }
 ```
 
-Both helpers read `HUUMA_ENV` and require `--allow-env=HUUMA_ENV` to detect a configured environment. If environment access is not granted, they return `false` instead of throwing a permission error.
+Both helpers read `HUUMA_ENV` from `process.env`. On Deno they require `--allow-env=HUUMA_ENV`; if environment access is not granted, they return `false` instead of throwing a permission error.
+
+On platforms without a process environment, set values explicitly. They take precedence over `process.env`:
+
+```typescript
+import { setEnv, setEnvironment } from "jsr:@huuma/route/utils/environment";
+
+setEnvironment("PROD"); // same as setEnv({ HUUMA_ENV: "PROD" })
+setEnv({ HUUMA_LOG_LEVEL: "WARN" });
+```
+
+## Deploying to Cloudflare Workers
+
+Export the app as the Worker's default export. Set `HUUMA_ENV` and `HUUMA_LOG_LEVEL` as `vars`; the app applies them on the first request, so `isProd()` and the logger work without extra code.
+
+```jsonc
+// wrangler.jsonc
+{
+  "name": "my-app",
+  "main": "src/main.ts",
+  "compatibility_date": "2026-10-01",
+  "vars": { "HUUMA_ENV": "PROD" },
+  // Serve static/ with Workers static assets instead of loadStaticFiles.
+  "assets": { "directory": "./static" }
+}
+```
+
+The core doesn't need `nodejs_compat`. Only `@huuma/route/http/tasks/*` and `@huuma/route/node` use Node.js built-ins, and they aren't meant for Workers.
 
 ## License
 
@@ -336,5 +403,14 @@ MIT
 ## Contributing
 
 Contributions are welcome! Please open an issue or pull request on our GitHub repository.
+
+`package.json` holds development tooling only; the package is published to JSR from `jsr.json`.
+
+```bash
+bun install
+bun run check       # tsc type check
+bun test            # all tests, including Workers tests in workerd via Miniflare
+bun run test:node   # the node:http adapter tests on Node.js
+```
 
 This framework is still in development and APIs may change in future versions.

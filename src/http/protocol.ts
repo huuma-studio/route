@@ -7,6 +7,7 @@ import {
   HookType,
   type Protocol,
   type ProtocolConnectionInfo,
+  type ProtocolPlatform,
 } from "../protocol.ts";
 import { addSearchParamsToContext } from "../middleware/add-search-params-to-context.ts";
 import { addRawBodyToContext } from "../middleware/add-raw-body-to-context.ts";
@@ -120,9 +121,10 @@ export class HttpProtocol<T extends AppContext> implements Protocol<T> {
 
   async handle(
     request: Request,
-    connection: ProtocolConnectionInfo,
+    connection?: ProtocolConnectionInfo,
+    platform?: ProtocolPlatform,
   ): Promise<Response> {
-    const ctx = new RequestContext(request, connection);
+    const ctx = new RequestContext(request, connection, platform);
 
     try {
       const resp = await handle(ctx, this.#chain, this.#router.resolve);
