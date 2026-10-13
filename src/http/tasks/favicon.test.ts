@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it, spyOn } from "bun:test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { App } from "../../app.ts";
 import { Favicon } from "./favicon.ts";
 
@@ -35,9 +35,9 @@ describe("Favicon", () => {
     const app = new App();
     Favicon(join(tmpdir(), "huuma-route-missing-favicon.ico"), app);
 
-    const consoleError = spyOn(console, "error").mockImplementation(
-      () => {},
-    );
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     try {
       const response = await getFavicon(app);
       await response.body?.cancel();

@@ -109,7 +109,7 @@ export class App<T extends AppContext = any> {
       error(
         "APPLICATION INIT",
         reason instanceof Error
-          ? reason.stack ?? reason.message
+          ? (reason.stack ?? reason.message)
           : String(reason),
       );
     });
@@ -140,8 +140,8 @@ export class App<T extends AppContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.HEAD,
-      handler: <ControllerProperty<P, T>> funcName ?? handlerType,
-      controller: <ControllerConstructor<P>> handlerType,
+      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
+      controller: <ControllerConstructor<P>>handlerType,
     });
   }
 
@@ -159,8 +159,8 @@ export class App<T extends AppContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.GET,
-      handler: <ControllerProperty<P, T>> funcName ?? handlerType,
-      controller: <ControllerConstructor<P>> handlerType,
+      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
+      controller: <ControllerConstructor<P>>handlerType,
     });
   }
 
@@ -178,8 +178,8 @@ export class App<T extends AppContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.POST,
-      handler: <ControllerProperty<P, T>> funcName ?? handlerType,
-      controller: <ControllerConstructor<P>> handlerType,
+      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
+      controller: <ControllerConstructor<P>>handlerType,
     });
   }
 
@@ -197,8 +197,8 @@ export class App<T extends AppContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.PUT,
-      handler: <ControllerProperty<P, T>> funcName ?? handlerType,
-      controller: <ControllerConstructor<P>> handlerType,
+      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
+      controller: <ControllerConstructor<P>>handlerType,
     });
   }
 
@@ -216,8 +216,8 @@ export class App<T extends AppContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.PATCH,
-      handler: <ControllerProperty<P, T>> funcName ?? handlerType,
-      controller: <ControllerConstructor<P>> handlerType,
+      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
+      controller: <ControllerConstructor<P>>handlerType,
     });
   }
 
@@ -235,8 +235,8 @@ export class App<T extends AppContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.DELETE,
-      handler: <ControllerProperty<P, T>> funcName ?? handlerType,
-      controller: <ControllerConstructor<P>> handlerType,
+      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
+      controller: <ControllerConstructor<P>>handlerType,
     });
   }
 
@@ -254,8 +254,8 @@ export class App<T extends AppContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.OPTIONS,
-      handler: <ControllerProperty<P, T>> funcName ?? handlerType,
-      controller: <ControllerConstructor<P>> handlerType,
+      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
+      controller: <ControllerConstructor<P>>handlerType,
     });
   }
 

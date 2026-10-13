@@ -390,7 +390,7 @@ Export the app as the Worker's default export. Set `HUUMA_ENV` and `HUUMA_LOG_LE
   "compatibility_date": "2026-10-01",
   "vars": { "HUUMA_ENV": "PROD" },
   // Serve static/ with Workers static assets instead of loadStaticFiles.
-  "assets": { "directory": "./static" }
+  "assets": { "directory": "./static" },
 }
 ```
 
@@ -405,12 +405,13 @@ MIT
 Contributions are welcome! Please open an issue or pull request on our GitHub repository.
 
 `package.json` holds development tooling only; the package is published to JSR from `jsr.json`.
+Development uses [Vite+](https://viteplus.dev) (`vp`), configured in `vite.config.ts`.
 
 ```bash
-bun install
-bun run check       # tsc type check
-bun test            # all tests, including Workers tests in workerd via Miniflare
-bun run test:node   # the node:http adapter tests on Node.js
+pnpm install
+pnpm check          # vp check: format, lint and type check (`vp check --fix` to fix)
+pnpm test           # vp test: all tests on Node.js, including Workers tests in workerd via Miniflare
+pnpm test:bun       # the same tests on the Bun runtime (needs Bun installed)
 ```
 
 This framework is still in development and APIs may change in future versions.

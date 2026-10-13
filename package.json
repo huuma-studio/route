@@ -1,18 +1,20 @@
 {
   "name": "@huuma/route-dev",
   "private": true,
-  "type": "module",
   "description": "Development tooling only. @huuma/route is published to JSR from jsr.json.",
+  "type": "module",
   "scripts": {
-    "check": "tsc",
-    "test": "bun test",
-    "test:node": "esbuild src/node/serve.test.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.cache/huuma-route/serve.test.mjs && node --test-timeout=10000 node_modules/.cache/huuma-route/serve.test.mjs"
+    "check": "vp check",
+    "test": "vp test",
+    "test:bun": "bun --bun vp test"
   },
   "devDependencies": {
-    "@types/bun": "1.4.2",
     "@types/node": "24.19.2",
     "esbuild": "0.28.2",
     "miniflare": "5.20261006.1-alpha",
-    "typescript": "7.0.2"
-  }
+    "typescript": "7.0.2",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "packageManager": "pnpm@12.8.1"
 }

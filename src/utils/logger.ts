@@ -69,18 +69,19 @@ function emit(
 ): void {
   if (!shouldEmit(level)) return;
 
-  const sink = level >= LogLevel.ERROR
-    ? console.error
-    : level >= LogLevel.WARN
-    ? console.warn
-    : level >= LogLevel.INFO
-    ? console.info
-    : console.log;
+  const sink =
+    level >= LogLevel.ERROR
+      ? console.error
+      : level >= LogLevel.WARN
+        ? console.warn
+        : level >= LogLevel.INFO
+          ? console.info
+          : console.log;
 
   sink(
-    `${bold(date(new Date()))} ${bold(colorize(name, level))} ${
-      bold(context)
-    } ${message}`,
+    `${bold(date(new Date()))} ${bold(colorize(name, level))} ${bold(
+      context,
+    )} ${message}`,
   );
 }
 
@@ -150,15 +151,15 @@ function bold(text: string) {
 }
 
 function date(date: Date): string {
-  return `${doubleDigits(date.getDate())}.${
-    doubleDigits(date.getMonth() + 1)
-  }.${doubleDigits(date.getFullYear())} ${time(date)}`;
+  return `${doubleDigits(date.getDate())}.${doubleDigits(
+    date.getMonth() + 1,
+  )}.${doubleDigits(date.getFullYear())} ${time(date)}`;
 }
 
 function time(date: Date): string {
-  return `${doubleDigits(date.getHours())}:${doubleDigits(date.getMinutes())}:${
-    doubleDigits(date.getSeconds())
-  }`;
+  return `${doubleDigits(date.getHours())}:${doubleDigits(date.getMinutes())}:${doubleDigits(
+    date.getSeconds(),
+  )}`;
 }
 
 function doubleDigits(number: number): string {

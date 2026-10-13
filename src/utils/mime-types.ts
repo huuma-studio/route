@@ -44,8 +44,7 @@ export const mimeTypes: MimeType[] = [
     fileExtensions: ["doc"],
   },
   {
-    type:
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     fileExtensions: ["docx"],
   },
   {
@@ -153,8 +152,7 @@ export const mimeTypes: MimeType[] = [
     fileExtensions: ["ppt"],
   },
   {
-    type:
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     fileExtensions: ["pptx"],
   },
   {

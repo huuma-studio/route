@@ -17,6 +17,8 @@ export function readableStream(
 
 /** Returns whether `error` is a filesystem error with the given errno `code` (e.g. `ENOENT`). */
 export function isNodeError(error: unknown, code: string): boolean {
-  return error instanceof Error &&
-    (error as Error & { code?: unknown }).code === code;
+  return (
+    error instanceof Error &&
+    (error as Error & { code?: unknown }).code === code
+  );
 }

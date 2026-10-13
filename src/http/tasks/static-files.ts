@@ -33,23 +33,21 @@ export async function loadStaticFiles(
           maxAge: options?.maxAge,
         });
       } else {
-        registerStaticFiles(
-          app,
-          {
-            enableResponseStreaming: options?.enableResponseStreaming,
-            directory,
-            path: options?.path ? `${options.path}/${file.name}` : file.name,
-            maxAge: options?.maxAge,
-          },
-        );
+        registerStaticFiles(app, {
+          enableResponseStreaming: options?.enableResponseStreaming,
+          directory,
+          path: options?.path ? `${options.path}/${file.name}` : file.name,
+          maxAge: options?.maxAge,
+        });
       }
     }
   } catch (_err: unknown) {
     log(
       "HTTP CONTEXT",
-      `No routes from the '${
-        filePath(directory, options?.path)
-      }' directory loaded!`,
+      `No routes from the '${filePath(
+        directory,
+        options?.path,
+      )}' directory loaded!`,
     );
   }
   return app;
@@ -74,8 +72,8 @@ export function registerStaticFiles(
         : new Uint8Array(await readFile(file)),
       {
         headers: {
-          "Content-Type": mimeTypeByExtension(extension(options.path))?.type ||
-            "text/plain",
+          "Content-Type":
+            mimeTypeByExtension(extension(options.path))?.type || "text/plain",
           ...(isProd()
             ? { "Cache-Control": `max-age=${options.maxAge ?? 3600}` }
             : {}),

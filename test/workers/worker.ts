@@ -22,7 +22,8 @@ app.get("/", (ctx) =>
     greeting: ctx.env.GREETING,
     remoteAddr: ctx.connection.remoteAddr,
     process: typeof (globalThis as { process?: unknown }).process,
-  }));
+  }),
+);
 
 app.get("/error", () => {
   throw new BadRequestException("invalid input");
@@ -30,8 +31,8 @@ app.get("/error", () => {
 
 app.get("/wait", (ctx) => {
   ctx.waitUntil(
-    new Promise((resolve) => setTimeout(resolve, 20)).then(() =>
-      backgroundRuns++
+    new Promise((resolve) => setTimeout(resolve, 20)).then(
+      () => backgroundRuns++,
     ),
   );
   return new Response("scheduled");

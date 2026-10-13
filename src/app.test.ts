@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { App } from "./app.ts";
 import type { RequestContext } from "./http/request.ts";
 import { HookType } from "./protocol.ts";
@@ -18,7 +18,7 @@ function echoApp() {
 }
 
 function executionContext() {
-  return { waitUntil: mock(), passThroughOnException: mock() };
+  return { waitUntil: vi.fn(), passThroughOnException: vi.fn() };
 }
 
 const request = () => new Request("http://localhost/");
@@ -29,7 +29,7 @@ describe("App.fetch", () => {
   it("initializes the app once, on the first request", async () => {
     const app = new App();
     app.get("/", () => new Response("ok"));
-    const init = mock();
+    const init = vi.fn();
     app.on(HookType.APPLICATION_INIT, init);
 
     expect(await (await app.fetch(request())).text()).toBe("ok");
@@ -40,7 +40,7 @@ describe("App.fetch", () => {
   it("does not initialize again after init()", async () => {
     const app = new App();
     app.get("/", () => new Response("ok"));
-    const init = mock();
+    const init = vi.fn();
     app.on(HookType.APPLICATION_INIT, init);
     app.init();
 
@@ -162,9 +162,9 @@ describe("RequestContext.waitUntil without an execution context", () => {
   it("logs a rejected promise instead of leaving it unhandled", async () => {
     const { app, context } = echoApp();
     await app.fetch(request());
-    const consoleError = spyOn(console, "error").mockImplementation(
-      () => {},
-    );
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
     try {
       context().waitUntil(Promise.reject(new Error("background failure")));
       await new Promise((resolve) => setTimeout(resolve, 0));
