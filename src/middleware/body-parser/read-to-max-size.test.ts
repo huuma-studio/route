@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vite-plus/test";
 import { EntityTooLargeException } from "../../http/exceptions/entity-too-large-exception.ts";
 import { readToMaxSize } from "./body-parser.ts";
 
@@ -41,8 +41,9 @@ describe("readToMaxSize:", () => {
   });
 
   it("rejects single chunk exceeding max size", async () => {
-    await expect(readToMaxSize(streamOf(encode("abcdefgh")), 5)).rejects
-      .toThrow(EntityTooLargeException);
+    await expect(
+      readToMaxSize(streamOf(encode("abcdefgh")), 5),
+    ).rejects.toThrow(EntityTooLargeException);
   });
 
   it("rejects when chunks combined exceed max size but none alone does", async () => {

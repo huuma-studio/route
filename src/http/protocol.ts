@@ -58,7 +58,8 @@ export class HttpProtocol<T extends AppContext> implements Protocol<T> {
 
   constructor(options?: HttpProtocolOptions) {
     this.middleware([addSearchParamsToContext]);
-    const hasDeprecatedOption = options?.rawBody !== undefined ||
+    const hasDeprecatedOption =
+      options?.rawBody !== undefined ||
       options?.bodyParserOptions !== undefined;
     if (hasDeprecatedOption && options?.useDefaultBodyParser !== true) {
       throw new Error(
@@ -74,8 +75,8 @@ export class HttpProtocol<T extends AppContext> implements Protocol<T> {
         options.rawBody
           ? addRawBodyToContext
           : bodyParser(
-            options.bodyParserOptions && { ...options.bodyParserOptions },
-          ),
+              options.bodyParserOptions && { ...options.bodyParserOptions },
+            ),
       );
     }
     this.#router = new Router();
@@ -88,8 +89,8 @@ export class HttpProtocol<T extends AppContext> implements Protocol<T> {
   ): () => void {
     const hooksOfType = this.#hooks.get(hookName);
     Array.isArray(hooksOfType)
-      ? hooksOfType.push(<(...args: unknown[]) => void> listener)
-      : this.#hooks.set(hookName, [<(...args: unknown[]) => void> listener]);
+      ? hooksOfType.push(<(...args: unknown[]) => void>listener)
+      : this.#hooks.set(hookName, [<(...args: unknown[]) => void>listener]);
     return () => {
       const hooksOfType = this.#hooks.get(hookName);
       if (Array.isArray(hooksOfType)) {
@@ -115,7 +116,9 @@ export class HttpProtocol<T extends AppContext> implements Protocol<T> {
   }
 
   middleware(middleware: Middleware<T> | Middleware<T>[]): HttpProtocol<T> {
-    this.#chain.push(...(Array.isArray(middleware) ? middleware : [middleware]));
+    this.#chain.push(
+      ...(Array.isArray(middleware) ? middleware : [middleware]),
+    );
     return this;
   }
 

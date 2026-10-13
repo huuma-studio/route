@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vite-plus/test";
 import { HttpProtocol } from "./protocol.ts";
 
 describe("HttpProtocol deprecated body-parser options:", () => {
@@ -9,8 +9,9 @@ describe("HttpProtocol deprecated body-parser options:", () => {
   });
 
   it("throws when bodyParserOptions is set without useDefaultBodyParser", () => {
-    expect(() => new HttpProtocol({ bodyParserOptions: { maxBodySize: 2048 } }))
-      .toThrow("useDefaultBodyParser");
+    expect(
+      () => new HttpProtocol({ bodyParserOptions: { maxBodySize: 2048 } }),
+    ).toThrow("useDefaultBodyParser");
   });
 
   it("does not throw when useDefaultBodyParser is true with rawBody", () => {

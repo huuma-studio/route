@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vite-plus/test";
 import { EntityTooLargeException } from "../../http/exceptions/entity-too-large-exception.ts";
 import type { RequestContext } from "../../http/request.ts";
 import { bodyParser } from "./body-parser.ts";
@@ -27,9 +27,10 @@ describe("Body Parser:", () => {
 
   it('reject if body exceededs max size with "EntityTooLargeException"', async () => {
     await expect(
-      bodyParser({ maxBodySize: 2 })(contextOf('"a"'), next) as Promise<
-        Response
-      >,
+      bodyParser({ maxBodySize: 2 })(
+        contextOf('"a"'),
+        next,
+      ) as Promise<Response>,
     ).rejects.toThrow(EntityTooLargeException);
   });
 

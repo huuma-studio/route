@@ -37,8 +37,10 @@ interface Set<T extends AppContext> {
 }
 
 /** The platform bindings type of an app, set through the `Env` key of its `AppContext`. */
-export type EnvOf<T extends AppContext> = T extends
-  { Env?: infer E extends Record<string, unknown> } ? E
+export type EnvOf<T extends AppContext> = T extends {
+  Env?: infer E extends Record<string, unknown>;
+}
+  ? E
   : Record<string, unknown>;
 
 export class RequestContext<
@@ -96,7 +98,7 @@ export class RequestContext<
       error(
         "WAIT UNTIL",
         reason instanceof Error
-          ? reason.stack ?? reason.message
+          ? (reason.stack ?? reason.message)
           : String(reason),
       );
     });
@@ -127,19 +129,20 @@ export function path(request: Request): string {
 }
 
 export function method(request: Request): HttpMethod {
-  return <HttpMethod> request.method;
+  return <HttpMethod>request.method;
 }
 
 export function getSearchParams(request: Request): SearchParams {
   const searchParams = new URLSearchParams(new URL(request.url).search);
-  const searchEntries = <SearchParams> {};
+  const searchEntries = <SearchParams>{};
 
   for (const key of searchParams.keys()) {
     const searchParam = searchParams.getAll(key);
 
-    searchEntries[key] = searchParam.length <= 1
-      ? (searchEntries[key] = searchParam[0])
-      : (searchEntries[key] = searchParam);
+    searchEntries[key] =
+      searchParam.length <= 1
+        ? (searchEntries[key] = searchParam[0])
+        : (searchEntries[key] = searchParam);
   }
 
   return searchEntries;

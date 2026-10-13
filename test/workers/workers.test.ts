@@ -1,6 +1,6 @@
 import { build } from "esbuild";
 import { convertV4MiniflareOptions, Miniflare } from "miniflare";
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 
 // Since compatibility date 2026-08-04, Node.js compatibility is on by default;
 // both flags are needed to run without it, like a Worker without `nodejs_compat`.
@@ -25,13 +25,15 @@ beforeAll(async () => {
     write: false,
     logLevel: "silent",
   });
-  mf = new Miniflare(convertV4MiniflareOptions({
-    modules: true,
-    script: result.outputFiles[0].text,
-    compatibilityDate: COMPATIBILITY_DATE,
-    compatibilityFlags: COMPATIBILITY_FLAGS,
-    bindings: { HUUMA_ENV: "PROD", GREETING: "hello from env" },
-  }));
+  mf = new Miniflare(
+    convertV4MiniflareOptions({
+      modules: true,
+      script: result.outputFiles[0].text,
+      compatibilityDate: COMPATIBILITY_DATE,
+      compatibilityFlags: COMPATIBILITY_FLAGS,
+      bindings: { HUUMA_ENV: "PROD", GREETING: "hello from env" },
+    }),
+  );
   url = await mf.ready;
 }, 30_000);
 
@@ -73,7 +75,7 @@ describe("Cloudflare Workers without nodejs_compat", () => {
     for (let attempt = 0; attempt < 40 && runs === 0; attempt++) {
       await new Promise((resolve) => setTimeout(resolve, 50));
       const background = await request("/background");
-      runs = (await background.json() as { runs: number }).runs;
+      runs = ((await background.json()) as { runs: number }).runs;
     }
     expect(runs).toBe(1);
   });

@@ -1,7 +1,7 @@
 import { mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vite-plus/test";
 import { isNodeError, readableStream } from "./file-stream.ts";
 
 const CONTENT = "Hello, Huuma!";
@@ -38,8 +38,9 @@ describe("readableStream", () => {
 
 describe("isNodeError", () => {
   it("matches the errno code of filesystem errors", async () => {
-    const error = await open(join(tmpdir(), "huuma-route-missing-file"))
-      .catch((e) => e);
+    const error = await open(join(tmpdir(), "huuma-route-missing-file")).catch(
+      (e) => e,
+    );
     expect(isNodeError(error, "ENOENT")).toBe(true);
     expect(isNodeError(error, "EACCES")).toBe(false);
   });
