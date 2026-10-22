@@ -23,11 +23,11 @@ const request = (path: string, method = "GET") =>
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
   vi.spyOn(console, "warn").mockImplementation(() => {});
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe("Router", () => {
