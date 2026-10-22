@@ -242,7 +242,7 @@ export class App<T extends AppContext = any> {
 
   options<P>(
     path: string,
-    handlerType: ControllerConstructor<T>,
+    handlerType: ControllerConstructor<P>,
     funcName: ControllerProperty<P, T>,
   ): Route<T>;
   options<P>(path: string, handlerType: Handler<T>): Route<T>;

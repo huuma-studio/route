@@ -134,7 +134,9 @@ app.options("/users", (ctx) => {
   return new Response("Options for users");
 });
 
-// HEAD request
+// HEAD request. Without a HEAD route, HEAD requests get the GET route's
+// response without the body. A path that exists for other methods
+// answers 405 with an `Allow` header.
 app.head("/users", (ctx) => {
   return new Response("Head for users");
 });
@@ -269,6 +271,7 @@ Built-in exceptions:
 - `BadRequestException` (400)
 - `UnauthorizedException` (401)
 - `NotFoundException` (404)
+- `MethodNotAllowedException` (405), with an `Allow` header
 - `EntityTooLargeException` (413)
 - `UnsupportedMediaTypeException` (415)
 - `InternalServerException` (500)
