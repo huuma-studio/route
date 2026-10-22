@@ -30,8 +30,11 @@ afterEach(async () => {
   );
 });
 
-async function start(app: Parameters<typeof serve>[0]): Promise<string> {
-  server = await serve(app, { port: 0, hostname: "127.0.0.1" });
+async function start(
+  app: Parameters<typeof serve>[0],
+  options?: Parameters<typeof serve>[1],
+): Promise<string> {
+  server = await serve(app, { port: 0, hostname: "127.0.0.1", ...options });
   return `http://127.0.0.1:${server.port}`;
 }
 
@@ -264,6 +267,20 @@ describe("serve", () => {
     },
   );
 
+  it("takes the scheme from X-Forwarded-Proto only with trustProxy", async () => {
+    const app = new App();
+    app.get("/", (ctx) => new Response(new URL(ctx.request.url).protocol));
+    const headers = { "X-Forwarded-Proto": "https" };
+
+    const untrusted = await start(app);
+    assert.equal(await rawGet(untrusted, "/", headers), "http:");
+    await server?.shutdown();
+
+    const trusted = await start(app, { trustProxy: true });
+    assert.equal(await rawGet(trusted, "/", headers), "https:");
+    assert.equal(await rawGet(trusted, "/"), "http:");
+  });
+
   it("ignores a Host header that would change the path", async () => {
     const base = await start(echoUrl);
     assert.equal(
@@ -404,6 +421,25 @@ describe("toRequest", () => {
       toRequest(nodeRequest({ url: "/de/about", headers }), signal).url,
       "http://localhost:5173/de/about",
     );
+  });
+
+  it("takes the scheme from X-Forwarded-Proto with trustProxy", () => {
+    const url = (proto: string, trustProxy = true, encrypted = false) =>
+      toRequest(
+        nodeRequest({
+          url: "/a",
+          headers: { Host: "example.com", "X-Forwarded-Proto": proto },
+          encrypted,
+        }),
+        signal,
+        { trustProxy },
+      ).url;
+    assert.equal(url("https"), "https://example.com/a");
+    assert.equal(url("HTTPS, http"), "https://example.com/a");
+    assert.equal(url("http", true, true), "http://example.com/a");
+    // Unknown values and untrusted headers fall back to the socket.
+    assert.equal(url("javascript"), "http://example.com/a");
+    assert.equal(url("https", false), "http://example.com/a");
   });
 
   it("takes the host from HTTP/2's :authority and skips pseudo-headers", () => {

@@ -164,14 +164,14 @@ describe("log level", () => {
 describe("Logger colors", () => {
   const COLOR_ENV = ["NO_COLOR", "FORCE_COLOR"];
   let saved: Record<string, string | undefined>;
-  let isTTY: boolean | undefined;
+  let isTTY: { stdout?: boolean; stderr?: boolean };
 
   beforeEach(() => {
     saved = Object.fromEntries(
       COLOR_ENV.map((name) => [name, process.env[name]]),
     );
     COLOR_ENV.forEach((name) => delete process.env[name]);
-    isTTY = process.stdout.isTTY;
+    isTTY = { stdout: process.stdout.isTTY, stderr: process.stderr.isTTY };
   });
 
   afterEach(() => {
@@ -179,40 +179,60 @@ describe("Logger colors", () => {
       if (value === undefined) delete process.env[name];
       else process.env[name] = value;
     }
-    process.stdout.isTTY = isTTY as boolean;
+    process.stdout.isTTY = isTTY.stdout as boolean;
+    process.stderr.isTTY = isTTY.stderr as boolean;
   });
 
-  async function line(): Promise<string> {
+  function terminal(stdout: boolean, stderr: boolean): void {
+    process.stdout.isTTY = stdout;
+    process.stderr.isTTY = stderr;
+  }
+
+  // Logs one line at `level` and returns it as written to the console.
+  async function line(level: "info" | "error" = "error"): Promise<string> {
     const { logger } = await load();
-    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const sink = vi.spyOn(console, level).mockImplementation(() => {});
     try {
-      logger.error("CTX", "message");
-      return String(error.mock.calls[0][0]);
+      logger[level]("CTX", "message");
+      return String(sink.mock.calls[0][0]);
     } finally {
-      error.mockRestore();
+      sink.mockRestore();
     }
   }
 
   it("colors output on a terminal", async () => {
-    process.stdout.isTTY = true;
+    terminal(true, true);
     expect(await line()).toContain("\x1b[31mHuuma/Route\x1b[0m");
+    expect(await line("info")).toContain("\x1b[32mHuuma/Route\x1b[0m");
   });
 
   it("writes plain text when the output isn't a terminal", async () => {
-    process.stdout.isTTY = false;
+    terminal(false, false);
     expect(await line()).toMatch(
       /^\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}:\d{2} Huuma\/Route CTX message$/,
     );
   });
 
+  it("checks stderr for warnings and errors, stdout for the rest", async () => {
+    // `app 2> errors.log` on a terminal
+    terminal(true, false);
+    expect(await line("error")).not.toContain("\x1b[");
+    expect(await line("info")).toContain("\x1b[");
+
+    // `app > app.log` on a terminal
+    terminal(false, true);
+    expect(await line("error")).toContain("\x1b[");
+    expect(await line("info")).not.toContain("\x1b[");
+  });
+
   it("follows NO_COLOR", async () => {
-    process.stdout.isTTY = true;
+    terminal(true, true);
     process.env.NO_COLOR = "1";
     expect(await line()).not.toContain("\x1b[");
   });
 
   it("follows FORCE_COLOR", async () => {
-    process.stdout.isTTY = false;
+    terminal(false, false);
     process.env.FORCE_COLOR = "1";
     expect(await line()).toContain("\x1b[");
     process.env.FORCE_COLOR = "0";

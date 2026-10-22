@@ -59,6 +59,21 @@ await server.shutdown(); // or pass an AbortSignal as `signal`
 
 `Deno.serve(app.init())` and `app.handle(request, connection)` keep working.
 
+Behind a reverse proxy or load balancer that terminates TLS, Node.js only sees plain HTTP, so `request.url` and redirects built from it would use `http`. Set `trustProxy` to take the scheme from `X-Forwarded-Proto` instead. Enable it only behind such a proxy, because clients can send the header too:
+
+```typescript
+await serve(app, { port: 8000, trustProxy: true });
+```
+
+### Running in production
+
+Huuma/Route keeps the core small and leaves these to the platform or your own middleware:
+
+- **Rate limiting and request timeouts.** The Node adapter uses Node's defaults (`headersTimeout` 60 s, `requestTimeout` 300 s, `keepAliveTimeout` 5 s). Put rate limits and stricter timeouts in a reverse proxy, CDN or platform (Cloudflare, Deno Deploy).
+- **Security headers** such as `Strict-Transport-Security`, `Content-Security-Policy` and `X-Content-Type-Options`. Set them in a middleware or at the proxy.
+- **Body size.** Set `bodyParser({ maxBodySize })` to the largest body your API accepts.
+- **Logging.** Set `HUUMA_ENV=PROD` (or `HUUMA_LOG_LEVEL`) so only `INFO` and above is logged.
+
 To serve an app from your own Node.js server or middleware, such as a Vite or Express middleware, convert the request and response with `toRequest` and `writeResponse`. Both work with `node:http` and with `node:http2`'s compatibility API, and keep the `https` scheme of requests over TLS:
 
 ```typescript
@@ -134,7 +149,9 @@ app.options("/users", (ctx) => {
   return new Response("Options for users");
 });
 
-// HEAD request
+// HEAD request. Without a HEAD route, HEAD requests get the GET route's
+// response without the body. A path that exists for other methods
+// answers 405 with an `Allow` header.
 app.head("/users", (ctx) => {
   return new Response("Head for users");
 });
@@ -195,6 +212,21 @@ import { bodyParser } from "jsr:@huuma/route/middleware/body-parser";
 import { logTimeToResponse } from "jsr:@huuma/route/middleware/log-time-to-response";
 
 app.middleware([bodyParser(), logTimeToResponse]);
+```
+
+`Cors` answers preflight requests itself, so add it as app middleware rather than per route. It also adds its headers to error responses:
+
+```typescript
+import { Cors } from "jsr:@huuma/route/middleware/cors";
+
+app.middleware(
+  Cors({
+    allowedCorsDomains: ["https://app.example"], // or ["*"]
+    allowCredentials: true,
+    exposedCorsHeaders: ["X-Total-Count"],
+    maxAge: 600,
+  }),
+);
 ```
 
 ## Request Context
@@ -269,6 +301,7 @@ Built-in exceptions:
 - `BadRequestException` (400)
 - `UnauthorizedException` (401)
 - `NotFoundException` (404)
+- `MethodNotAllowedException` (405), with an `Allow` header
 - `EntityTooLargeException` (413)
 - `UnsupportedMediaTypeException` (415)
 - `InternalServerException` (500)
@@ -342,6 +375,8 @@ app.on(HookType.REQUEST_FINALLY, (ctx) => {
   console.log("Request finished");
 });
 ```
+
+The server returns the response without waiting for request hook promises to finish. Hooks start before the response returns, so synchronous listener work can still delay it. First `REQUEST_SUCCESS` or `REQUEST_ERROR` runs, then `REQUEST_FINALLY`, each awaiting its listeners in order. The context state stays available until the last listener has finished. On Cloudflare Workers they run through `ctx.waitUntil`.
 
 ## Validation
 
@@ -456,6 +491,7 @@ pnpm install
 pnpm check          # vp check: format, lint and type check (`vp check --fix` to fix)
 pnpm test           # vp test: all tests on Node.js, including Workers tests in workerd via Miniflare
 pnpm test:bun       # the same tests on the Bun runtime (needs Bun installed)
+pnpm test:deno      # serve the smoke-test app from source with Deno.serve (needs Deno installed)
 ```
 
 This framework is still in development and APIs may change in future versions.

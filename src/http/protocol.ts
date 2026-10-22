@@ -15,6 +15,7 @@ import { Router } from "./router.ts";
 import { handleException } from "./exceptions/handle-exception.ts";
 import { RequestContext } from "./request.ts";
 import type { AppContext } from "../app.ts";
+import { error as logError } from "../utils/logger.ts";
 
 export interface HttpProtocolOptions {
   /**
@@ -109,7 +110,10 @@ export class HttpProtocol<T extends AppContext> implements Protocol<T> {
         try {
           await hook(ctx);
         } catch (e) {
-          console.error(e);
+          logError(
+            `HOOK ${name}`,
+            e instanceof Error ? (e.stack ?? e.message) : String(e),
+          );
         }
       }
     }
@@ -129,16 +133,33 @@ export class HttpProtocol<T extends AppContext> implements Protocol<T> {
   ): Promise<Response> {
     const ctx = new RequestContext(request, connection, platform);
 
+    let response: Response;
+    let outcome: HookType = HookType.REQUEST_ERROR;
     try {
-      const resp = await handle(ctx, this.#chain, this.#router.resolve);
-      this.hook(HookType.REQUEST_SUCCESS, ctx);
-      return resp;
+      response = await handle(ctx, this.#chain, this.#router.resolve);
+      outcome = HookType.REQUEST_SUCCESS;
     } catch (error: unknown) {
-      this.hook(HookType.REQUEST_ERROR, ctx);
-      return handleException(error);
+      response = handleException(error);
     } finally {
-      this.hook(HookType.REQUEST_FINALLY, ctx);
-      ctx.clear();
+      // Also when building the error response fails. The response doesn't
+      // wait for the hooks' promises; waitUntil keeps them alive on Workers.
+      ctx.waitUntil(this.#afterResponse(ctx, outcome));
     }
+    return forMethod(request, response);
   }
+
+  async #afterResponse(ctx: RequestContext, outcome: HookType): Promise<void> {
+    // Clear the state only once every listener has finished with it.
+    await this.hook(outcome, ctx);
+    await this.hook(HookType.REQUEST_FINALLY, ctx);
+    ctx.clear();
+  }
+}
+
+// A HEAD response has no body (RFC 9110, 9.3.2), also when it comes from a
+// GET route or is an error response. The headers stay.
+function forMethod(request: Request, response: Response): Response {
+  if (request.method !== "HEAD" || response.body === null) return response;
+  void response.body.cancel().catch(() => {});
+  return new Response(null, response);
 }

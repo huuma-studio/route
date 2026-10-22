@@ -100,9 +100,10 @@ export class App<T extends AppContext = any> {
 
   /**
    * Runs the APPLICATION_INIT listeners. Requests through `handle` and `fetch`
-   * wait until they have finished.
+   * wait until they have finished. Calling it again only returns `handle`.
    */
   init(): this["handle"] {
+    if (this.#ready) return this.handle;
     this.#ready = Promise.resolve(
       this.#options.protocol.hook(HookType.APPLICATION_INIT, this),
     ).catch((reason: unknown) => {
@@ -242,7 +243,7 @@ export class App<T extends AppContext = any> {
 
   options<P>(
     path: string,
-    handlerType: ControllerConstructor<T>,
+    handlerType: ControllerConstructor<P>,
     funcName: ControllerProperty<P, T>,
   ): Route<T>;
   options<P>(path: string, handlerType: Handler<T>): Route<T>;
