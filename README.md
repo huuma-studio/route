@@ -59,6 +59,21 @@ await server.shutdown(); // or pass an AbortSignal as `signal`
 
 `Deno.serve(app.init())` and `app.handle(request, connection)` keep working.
 
+Behind a reverse proxy or load balancer that terminates TLS, Node.js only sees plain HTTP, so `request.url` and redirects built from it would use `http`. Set `trustProxy` to take the scheme from `X-Forwarded-Proto` instead. Enable it only behind such a proxy, because clients can send the header too:
+
+```typescript
+await serve(app, { port: 8000, trustProxy: true });
+```
+
+### Running in production
+
+Huuma/Route keeps the core small and leaves these to the platform or your own middleware:
+
+- **Rate limiting and request timeouts.** The Node adapter uses Node's defaults (`headersTimeout` 60 s, `requestTimeout` 300 s, `keepAliveTimeout` 5 s). Put rate limits and stricter timeouts in a reverse proxy, CDN or platform (Cloudflare, Deno Deploy).
+- **Security headers** such as `Strict-Transport-Security`, `Content-Security-Policy` and `X-Content-Type-Options`. Set them in a middleware or at the proxy.
+- **Body size.** Set `bodyParser({ maxBodySize })` to the largest body your API accepts.
+- **Logging.** Set `HUUMA_ENV=PROD` (or `HUUMA_LOG_LEVEL`) so only `INFO` and above is logged.
+
 To serve an app from your own Node.js server or middleware, such as a Vite or Express middleware, convert the request and response with `toRequest` and `writeResponse`. Both work with `node:http` and with `node:http2`'s compatibility API, and keep the `https` scheme of requests over TLS:
 
 ```typescript
