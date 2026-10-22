@@ -18,12 +18,13 @@ export type ProtocolPlatform = {
   waitUntil?: (promise: Promise<unknown>) => void;
 };
 
-export enum HookType {
-  APPLICATION_INIT = "application:init",
-  REQUEST_SUCCESS = "request:success",
-  REQUEST_ERROR = "request:error",
-  REQUEST_FINALLY = "request:finally",
-}
+export const HookType = {
+  APPLICATION_INIT: "application:init",
+  REQUEST_SUCCESS: "request:success",
+  REQUEST_ERROR: "request:error",
+  REQUEST_FINALLY: "request:finally",
+} as const;
+export type HookType = (typeof HookType)[keyof typeof HookType];
 
 export type Protocol<T extends AppContext> = {
   handle(

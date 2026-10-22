@@ -46,7 +46,7 @@ export class Router<T extends AppContext> {
       handler = (ctx: RequestContext<T>) => {
         if (toRoute.controller) {
           const controller = new toRoute.controller();
-          const func = controller[<ControllerProperty<P, T>>toRoute.handler];
+          const func = controller[toRoute.handler as ControllerProperty<P, T>];
           if (typeof func === "function") {
             return func.bind(controller)(ctx);
           }
