@@ -10,11 +10,15 @@ export async function logTimeToResponse(
   const startTime = Date.now();
   const response = await next();
 
-  // Stop time tracking and log the time.
+  // Stop time tracking and log the time. Only the path is logged, because
+  // query strings can hold tokens and personal data.
   const stopTime = Date.now();
+  const { pathname } = new URL(ctx.request.url);
   log(
     "REQUEST",
-    `Request to route ${ctx.request.url} took ${stopTime - startTime}ms`,
+    `${ctx.request.method} ${pathname} ${response.status} took ${
+      stopTime - startTime
+    }ms`,
   );
   return response;
 }

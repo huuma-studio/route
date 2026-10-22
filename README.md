@@ -369,6 +369,8 @@ Huuma/Route logs framework events through a built-in logger with severity levels
 
 Available levels, from most to least verbose: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`.
 
+Exceptions thrown while handling a request are logged too: client errors (4xx) at `DEBUG`, server errors (5xx and unexpected errors) at `ERROR` with their stack. Output is colored only on a terminal; `NO_COLOR` turns colors off and `FORCE_COLOR` on.
+
 ```bash
 # Only show warnings and errors. Allow explicit log-level configuration and
 # production detection via isProd().

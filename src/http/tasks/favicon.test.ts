@@ -43,9 +43,9 @@ describe("Favicon", () => {
       await response.body?.cancel();
       expect(response.status).toBe(500);
       expect(consoleError).toHaveBeenCalledTimes(1);
-      expect(consoleError.mock.calls[0][0]).toMatchObject({
-        message: "Not able to load favicon",
-      });
+      expect(consoleError.mock.calls[0][0]).toContain(
+        "Not able to load favicon",
+      );
     } finally {
       consoleError.mockRestore();
     }
