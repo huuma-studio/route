@@ -108,9 +108,12 @@ export function registerStaticFiles(
  * like a request URL, with URLPattern syntax (`:`, `*`, `+`, `(`, ...) escaped.
  */
 export function routePath(path: string): string {
+  // The URL parser would remove spaces at the end and tabs and newlines
+  // anywhere, so these are encoded first, like the other control characters.
   const encoded = `/${path}`.replace(
-    /[%?#\\]/g,
-    (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+    /[\x00-\x20%?#\\]/g,
+    (char) =>
+      `%${char.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")}`,
   );
   const { pathname } = new URL(encoded, "http://localhost");
   return pathname.replace(/[:*+?(){}\\]/g, "\\$&");

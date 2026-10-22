@@ -5,6 +5,7 @@ import {
   open,
   rm,
   symlink,
+  truncate,
   utimes,
   writeFile,
 } from "node:fs/promises";
@@ -84,6 +85,34 @@ async function countStreamedFiles(
     prototype.createReadStream = createReadStream;
   }
   return count;
+}
+
+// Shortens the file by one byte right after `FileHandle.stat` reports its
+// size, the first `times` times, as an in-place update would.
+async function withShrinkingFile(
+  file: string,
+  times: number,
+  fn: () => Promise<void>,
+): Promise<void> {
+  const handle = await open(file);
+  const prototype = Object.getPrototypeOf(handle) as FileHandle;
+  await handle.close();
+
+  const stat = prototype.stat;
+  let shrunk = 0;
+  prototype.stat = async function (
+    this: FileHandle,
+    ...args: Parameters<FileHandle["stat"]>
+  ) {
+    const stats = await stat.apply(this, args);
+    if (shrunk++ < times) await truncate(file, Number(stats.size) - 1);
+    return stats;
+  } as FileHandle["stat"];
+  try {
+    await fn();
+  } finally {
+    prototype.stat = stat;
+  }
 }
 
 function get(app: App, path: string, init?: RequestInit): Promise<Response> {
@@ -223,6 +252,9 @@ describe("loadStaticFiles file names", () => {
     "star*.txt": "/star*.txt",
     "{braces}.txt": "/{braces}.txt",
     "ümlaut.txt": "/ümlaut.txt",
+    "trailing.txt ": "/trailing.txt%20",
+    "tab\tname.txt": "/tab%09name.txt",
+    "new\nline.txt": "/new%0Aline.txt",
   };
 
   it("serves files whose names contain URL or URLPattern syntax", async () => {
@@ -237,9 +269,11 @@ describe("loadStaticFiles file names", () => {
         expect(await response.text()).toEqual(name);
       }
       // The pattern no longer matches other paths.
-      const response = await get(app, "/img1.png");
-      await response.body?.cancel();
-      expect(response.status).toEqual(404);
+      for (const path of ["/img1.png", "/trailing.txt", "/tabname.txt"]) {
+        const response = await get(app, path);
+        await response.body?.cancel();
+        expect(response.status, path).toEqual(404);
+      }
     });
   });
 
@@ -247,6 +281,8 @@ describe("loadStaticFiles file names", () => {
     expect(routePath("a+b.txt")).toEqual("/a\\+b.txt");
     expect(routePath("img(1).png")).toEqual("/img\\(1\\).png");
     expect(routePath("css/app.css")).toEqual("/css/app.css");
+    expect(routePath("a.txt ")).toEqual("/a.txt%20");
+    expect(routePath("a\tb.txt")).toEqual("/a%09b.txt");
   });
 });
 
@@ -403,6 +439,71 @@ describe("static file responses", () => {
       });
     });
   }
+
+  it("ignores Range on HEAD", async () => {
+    await withApp(async (app) => {
+      for (const range of ["bytes=2-5", "bytes=10-"]) {
+        const response = await get(app, "/digits.txt", {
+          method: "HEAD",
+          headers: { Range: range },
+        });
+        expect(response.status, range).toEqual(200);
+        expect(response.headers.get("Content-Length")).toEqual("10");
+        expect(response.headers.get("Content-Range")).toBeNull();
+      }
+    });
+  });
+
+  it("ignores Range when If-Range is a date", async () => {
+    await withApp(async (app) => {
+      const first = await get(app, "/digits.txt");
+      await first.body?.cancel();
+      const response = await get(app, "/digits.txt", {
+        headers: {
+          Range: "bytes=0-1",
+          "If-Range": first.headers.get("Last-Modified")!,
+        },
+      });
+      expect(response.status).toEqual(200);
+      expect(await response.text()).toEqual("0123456789");
+    });
+  });
+
+  it("answers with the new version of a file shortened while it is read", async () => {
+    await withApp(async (app, directory) => {
+      await withShrinkingFile(join(directory, "digits.txt"), 1, async () => {
+        const response = await get(app, "/digits.txt");
+        expect(response.status).toEqual(200);
+        expect(response.headers.get("Content-Length")).toEqual("9");
+        expect(await response.text()).toEqual("012345678");
+      });
+    });
+  });
+
+  it("fails instead of answering short when the file keeps changing", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await withApp(async (app, directory) => {
+        await withShrinkingFile(join(directory, "digits.txt"), 2, async () => {
+          const response = await get(app, "/digits.txt");
+          expect(response.status).toEqual(500);
+          await response.body?.cancel();
+        });
+      });
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("fails a stream that ends before its Content-Length", async () => {
+    await withApp(async (app, directory) => {
+      await withShrinkingFile(join(directory, "digits.txt"), 1, async () => {
+        const response = await get(app, "/digits.txt");
+        expect(response.headers.get("Content-Length")).toEqual("10");
+        await expect(response.text()).rejects.toThrow();
+      });
+    }, true);
+  });
 
   it("ignores Range when If-Range doesn't match", async () => {
     await withApp(async (app) => {

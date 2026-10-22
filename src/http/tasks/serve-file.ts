@@ -14,12 +14,29 @@ export type ServeFileOptions = {
 
 type ByteRange = { start: number; end: number };
 
+/** The file got shorter while it was read. */
+class FileChangedError extends Error {}
+
 /**
  * Answers a GET or HEAD request with a file. Supports conditional requests
  * (`ETag`, `Last-Modified`) and single byte ranges. Throws
  * `NotFoundException` when the file doesn't exist (anymore).
  */
 export async function serveFile(
+  request: Request,
+  path: string,
+  options: ServeFileOptions,
+): Promise<Response> {
+  try {
+    return await respond(request, path, options);
+  } catch (e) {
+    // Answer with the new version. A second change is an error.
+    if (e instanceof FileChangedError) return respond(request, path, options);
+    throw e;
+  }
+}
+
+async function respond(
   request: Request,
   path: string,
   options: ServeFileOptions,
@@ -54,7 +71,11 @@ export async function serveFile(
       return new Response(null, { status: HttpStatus.NOT_MODIFIED, headers });
     }
 
-    const range = byteRange(request, stats.size, etag, stats.mtime);
+    // Ranges are only defined for GET (RFC 9110, 14.2).
+    const range =
+      request.method === "GET"
+        ? byteRange(request, stats.size, etag)
+        : undefined;
     if (range === null) {
       headers.set("Content-Range", `bytes */${stats.size}`);
       return new Response(null, {
@@ -74,10 +95,10 @@ export async function serveFile(
     }
     if (options.streaming) {
       streaming = true;
-      return new Response(readableStream(handle, { start, end }), {
-        status,
-        headers,
-      });
+      return new Response(
+        readableStream(handle, { start, end }).pipeThrough(exactly(length)),
+        { status, headers },
+      );
     }
     return new Response(await read(handle, start, length), { status, headers });
   } finally {
@@ -100,10 +121,37 @@ async function read(
       length - offset,
       start + offset,
     );
-    if (bytesRead === 0) break;
+    if (bytesRead === 0) {
+      throw new FileChangedError(
+        `The file ended after ${offset} of ${length} bytes`,
+      );
+    }
     offset += bytesRead;
   }
-  return offset === length ? buffer : buffer.slice(0, offset);
+  return buffer;
+}
+
+/**
+ * Fails a stream that ends before `length` bytes, so the runtime aborts the
+ * response instead of ending it short of its `Content-Length`.
+ */
+function exactly(
+  length: number,
+): TransformStream<Uint8Array<ArrayBuffer>, Uint8Array<ArrayBuffer>> {
+  let received = 0;
+  return new TransformStream({
+    transform(chunk, controller) {
+      received += chunk.byteLength;
+      controller.enqueue(chunk);
+    },
+    flush() {
+      if (received < length) {
+        throw new FileChangedError(
+          `The file ended after ${received} of ${length} bytes`,
+        );
+      }
+    },
+  });
 }
 
 function isNotModified(request: Request, etag: string, mtime: Date): boolean {
@@ -131,18 +179,15 @@ function byteRange(
   request: Request,
   size: number,
   etag: string,
-  mtime: Date,
 ): ByteRange | null | undefined {
   const header = request.headers.get("range");
   if (!header) return undefined;
 
+  // Only the ETag proves the file is unchanged. The date form of If-Range
+  // can't, as a change within the same second keeps the date; the client
+  // then gets the whole file.
   const ifRange = request.headers.get("if-range");
-  if (ifRange !== null) {
-    const matches = ifRange.startsWith('"')
-      ? ifRange === etag
-      : Date.parse(ifRange) === seconds(mtime);
-    if (!matches) return undefined;
-  }
+  if (ifRange !== null && ifRange !== etag) return undefined;
 
   const match = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
   if (!match || (match[1] === "" && match[2] === "")) return undefined;
