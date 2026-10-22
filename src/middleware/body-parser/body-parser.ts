@@ -1,4 +1,6 @@
+import { BadRequestException } from "../../http/exceptions/bad-request-exception.ts";
 import { EntityTooLargeException } from "../../http/exceptions/entity-too-large-exception.ts";
+import { HttpException } from "../../http/exceptions/http-exception.ts";
 import { UnsupportedMediaTypeException } from "../../http/exceptions/unsupported-media-type-exception.ts";
 import type { RequestContext } from "../../http/request.ts";
 import type { Middleware, Next } from "../middleware.ts";
@@ -10,15 +12,19 @@ export interface Parser<T> {
 }
 
 export interface BodyParserOptions {
+  /** Largest accepted body in bytes. Default: 1 MiB. */
   maxBodySize: number;
+  /** Parsers by media type. Default: `[JSONParser]`. */
+  parsers?: Parser<unknown>[];
+  /** @deprecated Misspelled; use `parsers`. */
   paser?: Parser<unknown>[];
   /** Attach the raw request bytes to `ctx.rawContent` (Uint8Array). Default: false. */
   keepRaw?: boolean;
 }
 
 const defaultOptions: BodyParserOptions = {
-  maxBodySize: 1024,
-  paser: [JSONParser],
+  maxBodySize: 1024 * 1024,
+  parsers: [JSONParser],
   keepRaw: false,
 };
 
@@ -26,31 +32,53 @@ export function bodyParser(
   parserOptions?: Partial<BodyParserOptions>,
 ): Middleware {
   const options = { ...defaultOptions, ...parserOptions };
+  const parsers =
+    parserOptions?.parsers ?? parserOptions?.paser ?? defaultOptions.parsers;
   return async (ctx: RequestContext, next: Next) => {
     if (!ctx.request.body) {
       return next();
+    }
+    const contentLength = Number(ctx.request.headers.get("content-length"));
+    if (contentLength > options.maxBodySize) {
+      // Refuse before reading anything.
+      void ctx.request.body.cancel().catch(() => {});
+      throw tooLarge(options.maxBodySize);
     }
     const buffer = await readToMaxSize(ctx.request.body, options.maxBodySize);
     if (options.keepRaw) {
       ctx.rawContent = buffer;
     }
-    const contentType = ctx.request.headers
-      .get("content-type")
-      ?.split(" ")[0]
-      ?.replace(";", "");
+    const contentType = mediaType(ctx.request.headers.get("content-type"));
     if (contentType) {
-      const parser = options.paser?.find((parser) => {
-        return parser.mimeType === contentType;
+      const parser = parsers?.find((parser) => {
+        return parser.mimeType.toLowerCase() === contentType;
       });
       if (typeof parser?.parse !== "function") {
         throw new UnsupportedMediaTypeException(
           "Content type of request not supported",
         );
       }
-      ctx.body = parser.parse(buffer);
+      try {
+        ctx.body = parser.parse(buffer);
+      } catch (e) {
+        if (e instanceof HttpException) throw e;
+        throw new BadRequestException(`Malformed ${contentType} request body`);
+      }
     }
     return next();
   };
+}
+
+// The media type of a Content-Type header without its parameters
+// (`application/json` for `Application/JSON; charset=utf-8`).
+function mediaType(contentType: string | null): string | undefined {
+  return contentType?.split(";")[0].trim().toLowerCase() || undefined;
+}
+
+function tooLarge(maxBodySize: number): EntityTooLargeException {
+  return new EntityTooLargeException(
+    `Max. body size of ${maxBodySize} bytes exceeded`,
+  );
 }
 
 export function readToMaxSize(
@@ -72,9 +100,9 @@ async function readAll(
       break;
     }
     if (totalLength + value.byteLength > maxBodySize) {
-      throw new EntityTooLargeException(
-        `Max. body size of ${maxBodySize} bytes exceeded`,
-      );
+      // Stop the upload instead of leaving the stream locked and unread.
+      void reader.cancel().catch(() => {});
+      throw tooLarge(maxBodySize);
     }
     chunks.push(value);
     totalLength += value.byteLength;
