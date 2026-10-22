@@ -288,6 +288,8 @@ await loadAssets(app, { directory: "public" });
 Favicon("public/favicon.ico", app);
 ```
 
+Files are answered for `GET` and `HEAD` with `ETag` and `Last-Modified` (so revalidation gets `304 Not Modified`) and single byte ranges (`206 Partial Content`). A file removed after loading answers `404`. Symlinked files and directories are followed; directory loops are skipped.
+
 ## Controllers
 
 For more structured applications, you can use controllers:

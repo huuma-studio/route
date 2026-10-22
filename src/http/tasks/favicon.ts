@@ -1,7 +1,6 @@
-import { open } from "node:fs/promises";
 import type { App } from "../../app.ts";
-import { isProd } from "../../utils/environment.ts";
-import { isNodeError, readableStream } from "./file-stream.ts";
+import type { RequestContext } from "../request.ts";
+import { serveFile } from "./serve-file.ts";
 
 /**
  * Task to load a favicon from the provided path
@@ -10,20 +9,11 @@ import { isNodeError, readableStream } from "./file-stream.ts";
  * @param {App} app - Huuma/Route application to register the favicon
  */
 export function Favicon(path: string, app: App) {
-  app.get("/favicon.ico", async () => {
-    try {
-      const file = await open(path);
-      return new Response(readableStream(file), {
-        headers: {
-          "Content-Type": "image/vnd.microsoft.icon",
-          ...(isProd() ? { "Cache-Control": "max-age=3600" } : {}),
-        },
-      });
-    } catch (e) {
-      if (isNodeError(e, "ENOENT")) {
-        throw new Error("Not able to load favicon");
-      }
-      throw e;
-    }
-  });
+  const handler = (ctx: RequestContext) =>
+    serveFile(ctx.request, path, {
+      contentType: "image/vnd.microsoft.icon",
+      streaming: true,
+    });
+  app.get("/favicon.ico", handler);
+  app.head("/favicon.ico", handler);
 }

@@ -1,10 +1,10 @@
-import { open, readdir, readFile } from "node:fs/promises";
+import { readdir, realpath, stat } from "node:fs/promises";
 import type { App } from "../../app.ts";
-import { isProd } from "../../utils/environment.ts";
 import { extension } from "../../utils/file.ts";
 import { warn as log } from "../../utils/logger.ts";
 import { mimeTypeByExtension } from "../../utils/mime-types.ts";
-import { readableStream } from "./file-stream.ts";
+import type { RequestContext } from "../request.ts";
+import { serveFile } from "./serve-file.ts";
 
 const DEFAULT_DIRECTORY = "static";
 
@@ -19,38 +19,63 @@ export async function loadStaticFiles(
   app: App,
   options?: StaticFilesOptions,
 ): Promise<App> {
-  const directory = options?.directory ?? DEFAULT_DIRECTORY;
+  await loadDirectory(
+    app,
+    { ...options, directory: options?.directory ?? DEFAULT_DIRECTORY },
+    [],
+  );
+  return app;
+}
+
+async function loadDirectory(
+  app: App,
+  options: StaticFilesOptions & { directory: string },
+  ancestors: string[],
+): Promise<void> {
+  const { directory } = options;
+  const current = filePath(directory, options.path);
+  let files;
+  let real: string;
   try {
-    const files = await readdir(filePath(directory, options?.path), {
-      withFileTypes: true,
-    });
-    for (const file of files) {
-      if (file.isDirectory() || file.isSymbolicLink()) {
-        await loadStaticFiles(app, {
-          ...options,
-          directory,
-          path: options?.path ? `${options.path}/${file.name}` : file.name,
-          maxAge: options?.maxAge,
-        });
+    // A symlink can point back to a directory that contains it.
+    real = await realpath(current);
+    if (ancestors.includes(real)) {
+      log("HTTP CONTEXT", `Skipped '${current}', a directory loop`);
+      return;
+    }
+    files = await readdir(current, { withFileTypes: true });
+  } catch (_err: unknown) {
+    log("HTTP CONTEXT", `No routes from the '${current}' directory loaded!`);
+    return;
+  }
+
+  for (const file of files) {
+    const path = options.path ? `${options.path}/${file.name}` : file.name;
+    try {
+      // Follow symlinks to tell files and directories apart.
+      const isDirectory = file.isSymbolicLink()
+        ? (await stat(filePath(directory, path))).isDirectory()
+        : file.isDirectory();
+      if (isDirectory) {
+        await loadDirectory(app, { ...options, path }, [...ancestors, real]);
       } else {
         registerStaticFiles(app, {
-          enableResponseStreaming: options?.enableResponseStreaming,
+          enableResponseStreaming: options.enableResponseStreaming,
           directory,
-          path: options?.path ? `${options.path}/${file.name}` : file.name,
-          maxAge: options?.maxAge,
+          path,
+          maxAge: options.maxAge,
         });
       }
+    } catch (err: unknown) {
+      // One file, such as a broken symlink, doesn't stop the others.
+      log(
+        "HTTP CONTEXT",
+        `No route for '${filePath(directory, path)}' loaded: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
     }
-  } catch (_err: unknown) {
-    log(
-      "HTTP CONTEXT",
-      `No routes from the '${filePath(
-        directory,
-        options?.path,
-      )}' directory loaded!`,
-    );
   }
-  return app;
 }
 
 interface RegisterStaticFileOptions {
@@ -65,23 +90,30 @@ export function registerStaticFiles(
   options: RegisterStaticFileOptions,
 ): App {
   const file = filePath(options.directory, options.path);
-  app.get(`/${options.path}`, async () => {
-    return new Response(
-      options.enableResponseStreaming
-        ? readableStream(await open(file))
-        : new Uint8Array(await readFile(file)),
-      {
-        headers: {
-          "Content-Type":
-            mimeTypeByExtension(extension(options.path))?.type || "text/plain",
-          ...(isProd()
-            ? { "Cache-Control": `max-age=${options.maxAge ?? 3600}` }
-            : {}),
-        },
-      },
-    );
-  });
+  const handler = (ctx: RequestContext) =>
+    serveFile(ctx.request, file, {
+      contentType:
+        mimeTypeByExtension(extension(options.path))?.type || "text/plain",
+      streaming: options.enableResponseStreaming,
+      maxAge: options.maxAge,
+    });
+  const route = routePath(options.path);
+  app.get(route, handler);
+  app.head(route, handler);
   return app;
+}
+
+/**
+ * The route pattern that matches exactly the request path of a file: encoded
+ * like a request URL, with URLPattern syntax (`:`, `*`, `+`, `(`, ...) escaped.
+ */
+export function routePath(path: string): string {
+  const encoded = `/${path}`.replace(
+    /[%?#\\]/g,
+    (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  const { pathname } = new URL(encoded, "http://localhost");
+  return pathname.replace(/[:*+?(){}\\]/g, "\\$&");
 }
 
 function filePath(directory: string, path?: string): string {
