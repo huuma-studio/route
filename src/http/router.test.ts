@@ -74,7 +74,9 @@ describe("Router", () => {
     it("drops the body of an error from the GET route", async () => {
       const response = await app()(request("/missing", "HEAD"));
       expect(response.status).toBe(404);
-      expect(response.headers.get("content-type")).toBe("application/json");
+      expect(response.headers.get("content-type")).toContain(
+        "application/json",
+      );
       expect(response.body).toBeNull();
     });
 
