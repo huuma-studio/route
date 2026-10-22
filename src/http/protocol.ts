@@ -145,7 +145,7 @@ export class HttpProtocol<T extends AppContext> implements Protocol<T> {
       // wait for the hooks' promises; waitUntil keeps them alive on Workers.
       ctx.waitUntil(this.#afterResponse(ctx, outcome));
     }
-    return response;
+    return forMethod(request, response);
   }
 
   async #afterResponse(ctx: RequestContext, outcome: HookType): Promise<void> {
@@ -154,4 +154,12 @@ export class HttpProtocol<T extends AppContext> implements Protocol<T> {
     await this.hook(HookType.REQUEST_FINALLY, ctx);
     ctx.clear();
   }
+}
+
+// A HEAD response has no body (RFC 9110, 9.3.2), also when it comes from a
+// GET route or is an error response. The headers stay.
+function forMethod(request: Request, response: Response): Response {
+  if (request.method !== "HEAD" || response.body === null) return response;
+  void response.body.cancel().catch(() => {});
+  return new Response(null, response);
 }
