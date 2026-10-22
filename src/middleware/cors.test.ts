@@ -33,10 +33,10 @@ const get = (path: string, origin = ORIGIN) =>
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
+});
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe("Cors", () => {
