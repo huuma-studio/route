@@ -78,11 +78,30 @@ function emit(
           ? console.info
           : console.log;
 
+  const now = date(new Date());
   sink(
-    `${bold(date(new Date()))} ${bold(colorize(name, level))} ${bold(
-      context,
-    )} ${message}`,
+    useColor()
+      ? `${bold(now)} ${bold(colorize(name, level))} ${bold(context)} ${message}`
+      : `${now} ${name} ${context} ${message}`,
   );
+}
+
+type Stdout = { process?: { stdout?: { isTTY?: boolean } } };
+
+/**
+ * Whether to color the output: `NO_COLOR` turns it off and `FORCE_COLOR`
+ * on (https://no-color.org); otherwise only a terminal gets colors, not
+ * log files, collectors or the Workers console.
+ */
+function useColor(): boolean {
+  if (readEnv("NO_COLOR")) return false;
+  const force = readEnv("FORCE_COLOR");
+  if (force !== undefined) return force !== "0" && force !== "false";
+  try {
+    return (globalThis as Stdout).process?.stdout?.isTTY === true;
+  } catch {
+    return false;
+  }
 }
 
 export function trace(context: string, message: string, name?: string) {

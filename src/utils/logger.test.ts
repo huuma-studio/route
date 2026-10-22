@@ -160,3 +160,62 @@ describe("log level", () => {
     expect(calls.log).toBe(1);
   });
 });
+
+describe("Logger colors", () => {
+  const COLOR_ENV = ["NO_COLOR", "FORCE_COLOR"];
+  let saved: Record<string, string | undefined>;
+  let isTTY: boolean | undefined;
+
+  beforeEach(() => {
+    saved = Object.fromEntries(
+      COLOR_ENV.map((name) => [name, process.env[name]]),
+    );
+    COLOR_ENV.forEach((name) => delete process.env[name]);
+    isTTY = process.stdout.isTTY;
+  });
+
+  afterEach(() => {
+    for (const [name, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+    process.stdout.isTTY = isTTY as boolean;
+  });
+
+  async function line(): Promise<string> {
+    const { logger } = await load();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      logger.error("CTX", "message");
+      return String(error.mock.calls[0][0]);
+    } finally {
+      error.mockRestore();
+    }
+  }
+
+  it("colors output on a terminal", async () => {
+    process.stdout.isTTY = true;
+    expect(await line()).toContain("\x1b[31mHuuma/Route\x1b[0m");
+  });
+
+  it("writes plain text when the output isn't a terminal", async () => {
+    process.stdout.isTTY = false;
+    expect(await line()).toMatch(
+      /^\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}:\d{2} Huuma\/Route CTX message$/,
+    );
+  });
+
+  it("follows NO_COLOR", async () => {
+    process.stdout.isTTY = true;
+    process.env.NO_COLOR = "1";
+    expect(await line()).not.toContain("\x1b[");
+  });
+
+  it("follows FORCE_COLOR", async () => {
+    process.stdout.isTTY = false;
+    process.env.FORCE_COLOR = "1";
+    expect(await line()).toContain("\x1b[");
+    process.env.FORCE_COLOR = "0";
+    expect(await line()).not.toContain("\x1b[");
+  });
+});
