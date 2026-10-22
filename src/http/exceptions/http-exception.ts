@@ -1,11 +1,20 @@
 import type { HttpStatus } from "../http-status.ts";
 
 export class HttpException extends Error {
+  status: HttpStatus;
+  error?: string | string[];
+  /** Sent with the error response, such as `Allow` or `WWW-Authenticate`. */
+  headers: Headers;
+
   constructor(
-    public override message: string,
-    public status: HttpStatus,
-    public error?: string | string[],
+    message: string,
+    status: HttpStatus,
+    error?: string | string[],
+    headers?: HeadersInit,
   ) {
-    super();
+    super(message);
+    this.status = status;
+    this.error = error;
+    this.headers = new Headers(headers);
   }
 }
