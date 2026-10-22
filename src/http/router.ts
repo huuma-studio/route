@@ -93,7 +93,7 @@ export class Router<T extends AppContext> {
   resolve = (ctx: RequestContext): Promise<Response> => {
     const pathname = new URL(ctx.request.url).pathname;
     const requestMethod = method(ctx.request);
-    // HEAD falls back to the GET route, without the body.
+    // HEAD falls back to the GET route. The protocol removes the body.
     const match =
       this.#match(pathname, requestMethod) ??
       (requestMethod === HttpMethod.HEAD
@@ -115,10 +115,7 @@ export class Router<T extends AppContext> {
 
     ctx.params = match.params;
 
-    const response = handle(ctx, match.route.chain, match.route.handler);
-    return match.route.method === requestMethod
-      ? response
-      : response.then(withoutBody);
+    return handle(ctx, match.route.chain, match.route.handler);
   };
 
   #match(pathname: string, method: HttpMethod): RouteMatch<T> | undefined {
@@ -139,9 +136,4 @@ export class Router<T extends AppContext> {
     if (allow.has(HttpMethod.GET)) allow.add(HttpMethod.HEAD);
     return [...allow];
   }
-}
-
-function withoutBody(response: Response): Response {
-  void response.body?.cancel().catch(() => {});
-  return new Response(null, response);
 }

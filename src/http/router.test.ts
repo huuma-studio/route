@@ -7,6 +7,7 @@ import {
   vi,
 } from "vite-plus/test";
 import { App } from "../app.ts";
+import { NotFoundException } from "./exceptions/not-found-exception.ts";
 
 function app() {
   const app = new App();
@@ -15,6 +16,11 @@ function app() {
   app.get("/users/:id", (ctx) => Response.json(ctx.params));
   app.head("/explicit", () => new Response(null, { headers: { "X-B": "2" } }));
   app.get("/explicit", () => new Response("get"));
+  app.head("/explicit-body", () => new Response("not allowed"));
+  app.get("/missing", () => {
+    throw new NotFoundException("missing");
+  });
+  app.post("/only-post", () => new Response("created", { status: 201 }));
   return app.init();
 }
 
@@ -60,7 +66,29 @@ describe("Router", () => {
     });
 
     it("answers 404 when there is no GET route either", async () => {
-      expect((await app()(request("/nope", "HEAD"))).status).toBe(404);
+      const response = await app()(request("/nope", "HEAD"));
+      expect(response.status).toBe(404);
+      expect(response.body).toBeNull();
+    });
+
+    it("drops the body of an error from the GET route", async () => {
+      const response = await app()(request("/missing", "HEAD"));
+      expect(response.status).toBe(404);
+      expect(response.headers.get("content-type")).toBe("application/json");
+      expect(response.body).toBeNull();
+    });
+
+    it("drops the body of a 405", async () => {
+      const response = await app()(request("/only-post", "HEAD"));
+      expect(response.status).toBe(405);
+      expect(response.headers.get("allow")).toBe("POST");
+      expect(response.body).toBeNull();
+    });
+
+    it("drops the body a HEAD route returns", async () => {
+      const response = await app()(request("/explicit-body", "HEAD"));
+      expect(response.status).toBe(200);
+      expect(response.body).toBeNull();
     });
   });
 
