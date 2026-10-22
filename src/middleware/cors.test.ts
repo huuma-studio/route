@@ -1,4 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
 import { App } from "../app.ts";
 import { NotFoundException } from "../http/exceptions/not-found-exception.ts";
 import { HttpMethod } from "../http/http-method.ts";
@@ -26,6 +33,10 @@ const get = (path: string, origin = ORIGIN) =>
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 });
 
 describe("Cors", () => {
