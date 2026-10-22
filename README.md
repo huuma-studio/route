@@ -212,6 +212,21 @@ import { logTimeToResponse } from "jsr:@huuma/route/middleware/log-time-to-respo
 app.middleware([bodyParser(), logTimeToResponse]);
 ```
 
+`Cors` answers preflight requests itself, so add it as app middleware rather than per route. It also adds its headers to error responses:
+
+```typescript
+import { Cors } from "jsr:@huuma/route/middleware/cors";
+
+app.middleware(
+  Cors({
+    allowedCorsDomains: ["https://app.example"], // or ["*"]
+    allowCredentials: true,
+    exposedCorsHeaders: ["X-Total-Count"],
+    maxAge: 600,
+  }),
+);
+```
+
 ## Request Context
 
 The request context provides access to the request, parameters, body, and more:
