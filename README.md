@@ -341,6 +341,8 @@ app.on(HookType.REQUEST_FINALLY, (ctx) => {
 });
 ```
 
+The request hooks run after the response is returned, so they don't delay it: first `REQUEST_SUCCESS` or `REQUEST_ERROR`, then `REQUEST_FINALLY`, each awaiting its listeners in order. The context state stays available until the last listener has finished. On Cloudflare Workers they run through `ctx.waitUntil`.
+
 ## Validation
 
 For request validation, Huuma/Route can be integrated with [@huuma/validate](https://jsr.io/@huuma/validate):

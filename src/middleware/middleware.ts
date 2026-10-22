@@ -14,16 +14,20 @@ export function handle<T extends AppContext>(
   chain: Middleware<T>[],
   handler: Handler<T>,
 ): Promise<Response> {
-  let i = 0;
+  let called = -1;
 
-  async function next(): Promise<Response> {
+  async function dispatch(i: number): Promise<Response> {
+    // Calling next() twice would run the rest of the chain twice.
+    if (i <= called) {
+      throw new Error("next() was called multiple times");
+    }
+    called = i;
     const middleware = chain[i];
     if (typeof middleware === "function") {
-      i++;
-      return await middleware(ctx, next);
+      return await middleware(ctx, () => dispatch(i + 1));
     }
     return await handler(ctx);
   }
 
-  return next();
+  return dispatch(0);
 }
