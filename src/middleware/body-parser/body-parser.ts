@@ -62,7 +62,11 @@ export function bodyParser(
         ctx.body = parser.parse(buffer);
       } catch (e) {
         if (e instanceof HttpException) throw e;
-        throw new BadRequestException(`Malformed ${contentType} request body`);
+        // Keep the parser's error for debugging; the client only gets 400.
+        throw Object.assign(
+          new BadRequestException(`Malformed ${contentType} request body`),
+          { cause: e },
+        );
       }
     }
     return next();

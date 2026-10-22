@@ -62,6 +62,14 @@ describe("Body Parser:", () => {
       bodyParser()(contextOf("peng"), next) as Promise<Response>,
     ).rejects.toThrow(BadRequestException);
   });
+
+  it("keeps the parser's error as the cause", async () => {
+    const error = await (
+      bodyParser()(contextOf("peng"), next) as Promise<Response>
+    ).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect((error as Error).cause).toBeInstanceOf(SyntaxError);
+  });
 });
 
 describe("Body Parser content type:", () => {
