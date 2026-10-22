@@ -89,6 +89,54 @@ describe("Cors", () => {
     expect(response.headers.get("access-control-allow-origin")).toBe(ORIGIN);
   });
 
+  it("doesn't change a shared exception", async () => {
+    const OTHER = "https://other.example";
+    const shared = new NotFoundException("Shared");
+    const app = new App();
+    app.use(Cors({ allowedCorsDomains: [ORIGIN, OTHER] }));
+    app.get("/shared", () => {
+      throw shared;
+    });
+    const handle = app.init();
+
+    const [first, second] = await Promise.all([
+      handle(get("/shared", ORIGIN)),
+      handle(get("/shared", OTHER)),
+    ]);
+    const third = await handle(get("/shared", "https://evil.example"));
+
+    expect(first.headers.get("access-control-allow-origin")).toBe(ORIGIN);
+    expect(second.headers.get("access-control-allow-origin")).toBe(OTHER);
+    expect(third.headers.has("access-control-allow-origin")).toBe(false);
+    expect(third.headers.get("vary")).toBe("Origin");
+    expect(await third.json()).toEqual({ status: 404, message: "Shared" });
+    expect([...shared.headers]).toEqual([]);
+  });
+
+  it("keeps the class, message and stack of the exception", async () => {
+    const thrown = new NotFoundException("Gone");
+    const app = new App();
+    let caught: unknown;
+    app.use(async (_ctx, next) => {
+      try {
+        return await next();
+      } catch (e) {
+        caught = e;
+        throw e;
+      }
+    });
+    app.use(Cors({ allowedCorsDomains: [ORIGIN] }));
+    app.get("/gone", () => {
+      throw thrown;
+    });
+    await app.init()(get("/gone"));
+
+    expect(caught).not.toBe(thrown);
+    expect(caught).toBeInstanceOf(NotFoundException);
+    expect((caught as Error).message).toBe("Gone");
+    expect((caught as Error).stack).toBe(thrown.stack);
+  });
+
   it("adds headers to responses for unexpected errors", async () => {
     const response = await corsApp()(get("/broken"));
     expect(response.status).toBe(500);

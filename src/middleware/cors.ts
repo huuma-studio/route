@@ -89,10 +89,11 @@ export function Cors({
     try {
       response = await next();
     } catch (e) {
-      // Let the browser read error responses too.
+      // Let the browser read error responses too. The headers go on a copy,
+      // because the thrown exception can be shared between requests.
       const exception =
         e instanceof HttpException
-          ? e
+          ? copyException(e)
           : Object.assign(new InternalServerException(), { cause: e });
       appendHeaders(exception.headers, headers);
       throw exception;
@@ -119,6 +120,22 @@ function preflight(
     headers.set("Access-Control-Max-Age", String(maxAge));
   }
   return new Response(null, { status: 204, headers });
+}
+
+// A copy with its own headers that keeps the class, message, stack and cause.
+function copyException(exception: HttpException): HttpException {
+  const copy = Object.create(
+    Object.getPrototypeOf(exception) as object,
+    Object.getOwnPropertyDescriptors(exception),
+  ) as HttpException;
+  // V8's `stack` accessor only works on the original error.
+  Object.defineProperty(copy, "stack", {
+    value: exception.stack,
+    writable: true,
+    configurable: true,
+  });
+  copy.headers = new Headers(exception.headers);
+  return copy;
 }
 
 function appendHeaders(target: Headers, headers: Headers): void {
