@@ -75,19 +75,19 @@ export class App<T extends AppContext = any> {
   };
 
   on(
-    hookName: HookType.APPLICATION_INIT,
+    hookName: typeof HookType.APPLICATION_INIT,
     listener: (app: App<T>) => Promise<void> | void,
   ): () => void;
   on(
-    hookName: HookType.REQUEST_SUCCESS,
+    hookName: typeof HookType.REQUEST_SUCCESS,
     listener: (ctx: RequestContext<T>) => Promise<void> | void,
   ): () => void;
   on(
-    hookName: HookType.REQUEST_ERROR,
+    hookName: typeof HookType.REQUEST_ERROR,
     listener: (ctx: RequestContext<T>) => Promise<void> | void,
   ): () => void;
   on(
-    hookName: HookType.REQUEST_FINALLY,
+    hookName: typeof HookType.REQUEST_FINALLY,
     listener: (ctx: RequestContext<T>) => Promise<void> | void,
   ): () => void;
   on(
@@ -141,8 +141,8 @@ export class App<T extends AppContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.HEAD,
-      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
-      controller: <ControllerConstructor<P>>handlerType,
+      handler: (funcName as ControllerProperty<P, T>) ?? handlerType,
+      controller: handlerType as ControllerConstructor<P>,
     });
   }
 
@@ -160,8 +160,8 @@ export class App<T extends AppContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.GET,
-      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
-      controller: <ControllerConstructor<P>>handlerType,
+      handler: (funcName as ControllerProperty<P, T>) ?? handlerType,
+      controller: handlerType as ControllerConstructor<P>,
     });
   }
 
@@ -179,8 +179,8 @@ export class App<T extends AppContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.POST,
-      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
-      controller: <ControllerConstructor<P>>handlerType,
+      handler: (funcName as ControllerProperty<P, T>) ?? handlerType,
+      controller: handlerType as ControllerConstructor<P>,
     });
   }
 
@@ -198,8 +198,8 @@ export class App<T extends AppContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.PUT,
-      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
-      controller: <ControllerConstructor<P>>handlerType,
+      handler: (funcName as ControllerProperty<P, T>) ?? handlerType,
+      controller: handlerType as ControllerConstructor<P>,
     });
   }
 
@@ -217,8 +217,8 @@ export class App<T extends AppContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.PATCH,
-      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
-      controller: <ControllerConstructor<P>>handlerType,
+      handler: (funcName as ControllerProperty<P, T>) ?? handlerType,
+      controller: handlerType as ControllerConstructor<P>,
     });
   }
 
@@ -236,8 +236,8 @@ export class App<T extends AppContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.DELETE,
-      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
-      controller: <ControllerConstructor<P>>handlerType,
+      handler: (funcName as ControllerProperty<P, T>) ?? handlerType,
+      controller: handlerType as ControllerConstructor<P>,
     });
   }
 
@@ -255,8 +255,8 @@ export class App<T extends AppContext = any> {
     return this.#options.protocol.router.add({
       path,
       method: HttpMethod.OPTIONS,
-      handler: <ControllerProperty<P, T>>funcName ?? handlerType,
-      controller: <ControllerConstructor<P>>handlerType,
+      handler: (funcName as ControllerProperty<P, T>) ?? handlerType,
+      controller: handlerType as ControllerConstructor<P>,
     });
   }
 

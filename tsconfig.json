@@ -11,6 +11,8 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
   "include": ["src", "test", "vite.config.ts"]

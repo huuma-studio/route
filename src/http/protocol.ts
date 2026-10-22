@@ -90,8 +90,8 @@ export class HttpProtocol<T extends AppContext> implements Protocol<T> {
   ): () => void {
     const hooksOfType = this.#hooks.get(hookName);
     Array.isArray(hooksOfType)
-      ? hooksOfType.push(<(...args: unknown[]) => void>listener)
-      : this.#hooks.set(hookName, [<(...args: unknown[]) => void>listener]);
+      ? hooksOfType.push(listener as (...args: unknown[]) => void)
+      : this.#hooks.set(hookName, [listener as (...args: unknown[]) => void]);
     return () => {
       const hooksOfType = this.#hooks.get(hookName);
       if (Array.isArray(hooksOfType)) {

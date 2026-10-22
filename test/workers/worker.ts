@@ -18,7 +18,9 @@ app.use(async (_ctx, next) => {
 app.get("/", (ctx) =>
   Response.json({
     prod: isProd(),
-    logLevel: LogLevel[getLogLevel()],
+    logLevel: Object.keys(LogLevel).find(
+      (name) => LogLevel[name as keyof typeof LogLevel] === getLogLevel(),
+    ),
     greeting: ctx.env.GREETING,
     remoteAddr: ctx.connection.remoteAddr,
     process: typeof (globalThis as { process?: unknown }).process,

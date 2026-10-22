@@ -129,12 +129,12 @@ export function path(request: Request): string {
 }
 
 export function method(request: Request): HttpMethod {
-  return <HttpMethod>request.method;
+  return request.method as HttpMethod;
 }
 
 export function getSearchParams(request: Request): SearchParams {
   const searchParams = new URLSearchParams(new URL(request.url).search);
-  const searchEntries = <SearchParams>{};
+  const searchEntries: SearchParams = {};
 
   for (const key of searchParams.keys()) {
     const searchParam = searchParams.getAll(key);
