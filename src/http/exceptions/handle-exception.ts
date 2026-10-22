@@ -26,15 +26,20 @@ export function handleException(error: unknown): Response {
 }
 
 // Client errors are expected (scanners, typos), so they only show at DEBUG
-// level; server errors are logged with their stack.
+// level; server errors are logged with their stack. Both include the
+// chain of causes, such as a parser error behind a 400.
 function logException(error: unknown, status: HttpStatus): void {
   if (status < HttpStatus.INTERNAL_ERROR) {
-    const message = error instanceof Error ? error.message : String(error);
-    debug("HTTP EXCEPTION", `${status} ${message}`);
+    debug("HTTP EXCEPTION", `${status} ${describe(error, false)}`);
     return;
   }
-  logError(
-    "HTTP EXCEPTION",
-    error instanceof Error ? (error.stack ?? error.message) : String(error),
-  );
+  logError("HTTP EXCEPTION", describe(error, true));
+}
+
+function describe(error: unknown, withStack: boolean, depth = 0): string {
+  if (!(error instanceof Error)) return String(error);
+  const text = withStack ? (error.stack ?? error.message) : error.message;
+  // Guards against cause cycles.
+  if (error.cause === undefined || depth >= 5) return text;
+  return `${text}\nCaused by: ${describe(error.cause, withStack, depth + 1)}`;
 }

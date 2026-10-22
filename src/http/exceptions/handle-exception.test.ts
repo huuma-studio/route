@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { setEnv } from "../../utils/environment.ts";
+import { BadRequestException } from "./bad-request-exception.ts";
 import { handleException } from "./handle-exception.ts";
 import { InternalServerException } from "./internal-server-exception.ts";
 import { NotFoundException } from "./not-found-exception.ts";
@@ -48,5 +49,29 @@ describe("handleException logging", () => {
     const { error } = spies();
     handleException(new Error("database down"));
     expect(error).not.toHaveBeenCalled();
+  });
+
+  it("logs the causes of client errors", () => {
+    const { log } = spies();
+    handleException(
+      Object.assign(new BadRequestException("Malformed body"), {
+        cause: new SyntaxError("Unexpected token"),
+      }),
+    );
+    expect(log.mock.calls[0][0]).toContain(
+      "400 Malformed body\nCaused by: Unexpected token",
+    );
+  });
+
+  it("logs the causes of server errors with their stacks", () => {
+    const { error } = spies();
+    handleException(
+      Object.assign(new InternalServerException(), {
+        cause: new TypeError("db is undefined"),
+      }),
+    );
+    const line = String(error.mock.calls[0][0]);
+    expect(line).toContain("Caused by: TypeError: db is undefined");
+    expect(line.match(/handle-exception\.test\.ts/g)?.length).toBe(2);
   });
 });
