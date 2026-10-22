@@ -1,4 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
 import { App } from "../app.ts";
 
 function app() {
@@ -16,6 +23,10 @@ const request = (path: string, method = "GET") =>
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
   vi.spyOn(console, "warn").mockImplementation(() => {});
 });
 
