@@ -6,7 +6,8 @@
   "scripts": {
     "check": "vp check",
     "test": "vp test",
-    "test:bun": "bun --bun vp test"
+    "test:bun": "bun --bun vp test",
+    "test:deno": "deno run --allow-net=127.0.0.1 --allow-env=HUUMA_ENV,HUUMA_LOG_LEVEL --import-map=test/smoke/deno.source.json test/smoke/deno.mjs"
   },
   "devDependencies": {
     "@types/node": "24.19.2",

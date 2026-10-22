@@ -452,6 +452,7 @@ pnpm install
 pnpm check          # vp check: format, lint and type check (`vp check --fix` to fix)
 pnpm test           # vp test: all tests on Node.js, including Workers tests in workerd via Miniflare
 pnpm test:bun       # the same tests on the Bun runtime (needs Bun installed)
+pnpm test:deno      # serve the smoke-test app from source with Deno.serve (needs Deno installed)
 ```
 
 This framework is still in development and APIs may change in future versions.
