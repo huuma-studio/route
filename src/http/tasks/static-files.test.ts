@@ -9,6 +9,7 @@ import {
   utimes,
   writeFile,
 } from "node:fs/promises";
+import type { Stats } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
@@ -104,7 +105,7 @@ async function withShrinkingFile(
     this: FileHandle,
     ...args: Parameters<FileHandle["stat"]>
   ) {
-    const stats = await stat.apply(this, args);
+    const stats = (await stat.apply(this, args)) as Stats;
     if (shrunk++ < times) await truncate(file, Number(stats.size) - 1);
     return stats;
   } as FileHandle["stat"];
