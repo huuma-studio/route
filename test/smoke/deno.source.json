@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "@huuma/route": "../../src/mod.ts",
+    "@huuma/route/utils/environment": "../../src/utils/environment.ts"
+  }
+}

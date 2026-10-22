@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { HttpStatus } from "../http-status.ts";
 import { handleException } from "./handle-exception.ts";
 import { HttpException } from "./http-exception.ts";
@@ -21,6 +21,10 @@ describe("HttpException", () => {
 });
 
 describe("handleException", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("sends the exception's headers with the error response", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const exception = new HttpException(

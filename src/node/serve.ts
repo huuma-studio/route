@@ -29,6 +29,16 @@ export type ServeOptions = {
    * listening, `serve` rejects with the abort reason and no server stays open.
    */
   signal?: AbortSignal;
+} & ToRequestOptions;
+
+export type ToRequestOptions = {
+  /**
+   * Takes the scheme from the `X-Forwarded-Proto` header, which a reverse
+   * proxy or load balancer that terminates TLS sets, so `request.url` (and
+   * redirects built from it) keep `https`. Enable it only behind such a
+   * proxy: clients can send the header too. Defaults to `false`.
+   */
+  trustProxy?: boolean;
 };
 
 export type NodeServer = {
@@ -79,7 +89,7 @@ export function serve(
   if (signal?.aborted) return Promise.reject(signal.reason);
 
   const server = createServer((req, res) => {
-    void respond(handler, req, res);
+    void respond(handler, req, res, { trustProxy: options?.trustProxy });
   });
 
   const finished = new Promise<void>((resolve) => {
@@ -125,6 +135,7 @@ async function respond(
   handler: FetchHandler,
   req: IncomingMessage,
   res: ServerResponse,
+  options: ToRequestOptions,
 ): Promise<void> {
   const controller = new AbortController();
   res.once("close", () => {
@@ -133,7 +144,7 @@ async function respond(
 
   let request: Request;
   try {
-    request = toRequest(req, controller.signal);
+    request = toRequest(req, controller.signal, options);
   } catch {
     // A request target or method that a web Request can't represent.
     res.writeHead(400);
@@ -175,13 +186,18 @@ async function respond(
  * target (`http://host/path`) is used as it is.
  *
  * `signal` becomes the request's signal; abort it when the client goes away.
+ * With `trustProxy`, the scheme comes from `X-Forwarded-Proto`.
  *
  * @throws {TypeError} For a request target that is neither a path, an
  * absolute `http:`/`https:` URL nor `*`, and, on Node.js, for a method a web
  * `Request` doesn't allow (`CONNECT`, `TRACE`). Answer those with
  * `400 Bad Request`.
  */
-export function toRequest(req: NodeRequest, signal: AbortSignal): Request {
+export function toRequest(
+  req: NodeRequest,
+  signal: AbortSignal,
+  options?: ToRequestOptions,
+): Request {
   const headers = new Headers();
   for (let i = 0; i < req.rawHeaders.length; i += 2) {
     const name = req.rawHeaders[i];
@@ -197,9 +213,11 @@ export function toRequest(req: NodeRequest, signal: AbortSignal): Request {
         typeof value === "string" && VALID_HOST.test(value),
     ) ?? "localhost";
   // The scheme matters for redirects an app builds from `request.url`.
-  const scheme = (req.socket as { encrypted?: boolean } | undefined)?.encrypted
-    ? "https"
-    : "http";
+  const scheme =
+    (options?.trustProxy ? forwardedProto(req) : undefined) ??
+    ((req.socket as { encrypted?: boolean } | undefined)?.encrypted
+      ? "https"
+      : "http");
   const method = req.method ?? "GET";
   const hasBody = !BODYLESS_METHODS.has(method);
 
@@ -286,6 +304,16 @@ export async function writeResponse(
     if ((e as { code?: string }).code === "ERR_STREAM_PREMATURE_CLOSE") return;
     throw e;
   }
+}
+
+// The first proxy's value, as in `https, http` after a chain of proxies.
+function forwardedProto(req: NodeRequest): "http" | "https" | undefined {
+  const header = req.headers["x-forwarded-proto"];
+  const value = (Array.isArray(header) ? header[0] : header)
+    ?.split(",")[0]
+    .trim()
+    .toLowerCase();
+  return value === "http" || value === "https" ? value : undefined;
 }
 
 function isHttp2(res: NodeResponse): res is Http2ServerResponse {

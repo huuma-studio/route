@@ -77,12 +77,35 @@ function emit(
         : level >= LogLevel.INFO
           ? console.info
           : console.log;
+  // console.error and console.warn write to stderr, the others to stdout.
+  const stream = level >= LogLevel.WARN ? "stderr" : "stdout";
 
+  const now = date(new Date());
   sink(
-    `${bold(date(new Date()))} ${bold(colorize(name, level))} ${bold(
-      context,
-    )} ${message}`,
+    useColor(stream)
+      ? `${bold(now)} ${bold(colorize(name, level))} ${bold(context)} ${message}`
+      : `${now} ${name} ${context} ${message}`,
   );
+}
+
+type Streams = {
+  process?: Record<"stdout" | "stderr", { isTTY?: boolean } | undefined>;
+};
+
+/**
+ * Whether to color output to `stream`: `NO_COLOR` turns it off and
+ * `FORCE_COLOR` on (https://no-color.org); otherwise only a terminal gets
+ * colors, not log files, collectors or the Workers console.
+ */
+function useColor(stream: "stdout" | "stderr"): boolean {
+  if (readEnv("NO_COLOR")) return false;
+  const force = readEnv("FORCE_COLOR");
+  if (force !== undefined) return force !== "0" && force !== "false";
+  try {
+    return (globalThis as Streams).process?.[stream]?.isTTY === true;
+  } catch {
+    return false;
+  }
 }
 
 export function trace(context: string, message: string, name?: string) {

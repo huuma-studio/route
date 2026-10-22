@@ -7,7 +7,9 @@ export function redirectToWithoutSlash(
 ): Promise<Response> | Response {
   const url = new URL(ctx.request.url);
   if (url.pathname.at(-1) === "/" && url.pathname !== "/") {
-    return Response.redirect(ctx.request.url.replace(/\/$/, ""));
+    // Strip the slash from the path only, so the query and fragment stay.
+    url.pathname = url.pathname.replace(/\/+$/, "") || "/";
+    return Response.redirect(url.href);
   }
   return next();
 }
