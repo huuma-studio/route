@@ -5,11 +5,10 @@ import {
   open,
   rm,
   symlink,
-  truncate,
   utimes,
   writeFile,
 } from "node:fs/promises";
-import type { Stats } from "node:fs";
+import { statSync, truncateSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
@@ -61,59 +60,66 @@ async function withEnvironment(
   }
 }
 
+// Calls `before` ahead of every call of `FileHandle[method]` while `fn` runs.
+async function beforeFileHandle(
+  file: string,
+  method: "read" | "createReadStream",
+  before: () => void,
+  fn: () => Promise<void>,
+): Promise<void> {
+  const handle = await open(file);
+  const prototype = Object.getPrototypeOf(handle) as Record<
+    string,
+    (...args: unknown[]) => unknown
+  >;
+  await handle.close();
+
+  const original = prototype[method];
+  prototype[method] = function (this: FileHandle, ...args: unknown[]) {
+    before();
+    return original.apply(this, args);
+  };
+  try {
+    await fn();
+  } finally {
+    prototype[method] = original;
+  }
+}
+
 // Counts the files served through `FileHandle.createReadStream`, so streaming
 // can be told apart from buffering, which returns the same bytes.
 async function countStreamedFiles(
   directory: string,
   fn: () => Promise<void>,
 ): Promise<number> {
-  const handle = await open(join(directory, "index.html"));
-  const prototype = Object.getPrototypeOf(handle) as FileHandle;
-  await handle.close();
-
-  const createReadStream = prototype.createReadStream;
   let count = 0;
-  prototype.createReadStream = function (
-    this: FileHandle,
-    ...args: Parameters<FileHandle["createReadStream"]>
-  ) {
-    count++;
-    return createReadStream.apply(this, args);
-  };
-  try {
-    await fn();
-  } finally {
-    prototype.createReadStream = createReadStream;
-  }
+  await beforeFileHandle(
+    join(directory, "index.html"),
+    "createReadStream",
+    () => count++,
+    fn,
+  );
   return count;
 }
 
-// Shortens the file by one byte right after `FileHandle.stat` reports its
-// size, the first `times` times, as an in-place update would.
-async function withShrinkingFile(
+// Shortens `file` by one byte before each of the first `times` calls of
+// `FileHandle[method]`, as an in-place update would.
+function withShrinkingFile(
   file: string,
+  method: "read" | "createReadStream",
   times: number,
   fn: () => Promise<void>,
 ): Promise<void> {
-  const handle = await open(file);
-  const prototype = Object.getPrototypeOf(handle) as FileHandle;
-  await handle.close();
-
-  const stat = prototype.stat;
   let shrunk = 0;
-  prototype.stat = async function (
-    this: FileHandle,
-    ...args: Parameters<FileHandle["stat"]>
-  ) {
-    const stats = (await stat.apply(this, args)) as Stats;
-    if (shrunk++ < times) await truncate(file, Number(stats.size) - 1);
-    return stats;
-  } as FileHandle["stat"];
-  try {
-    await fn();
-  } finally {
-    prototype.stat = stat;
-  }
+  return beforeFileHandle(
+    file,
+    method,
+    () => {
+      const { size } = statSync(file);
+      if (shrunk++ < times && size > 0) truncateSync(file, size - 1);
+    },
+    fn,
+  );
 }
 
 function get(app: App, path: string, init?: RequestInit): Promise<Response> {
@@ -366,7 +372,7 @@ describe("static file responses", () => {
       const first = await get(app, "/digits.txt");
       await first.body?.cancel();
       const etag = first.headers.get("ETag")!;
-      expect(etag).toMatch(/^"[0-9a-f]+-[0-9a-f]+"$/);
+      expect(etag).toMatch(/^"[\w-]{27}"$/);
 
       for (const ifNoneMatch of [etag, `W/${etag}`, `"other", ${etag}`, "*"]) {
         const response = await get(app, "/digits.txt", {
@@ -379,6 +385,100 @@ describe("static file responses", () => {
         headers: { "If-None-Match": '"other"' },
       });
       expect(await changed.text()).toEqual("0123456789");
+    });
+  });
+
+  it("gives a changed file a new ETag, also with the same size and mtime", async () => {
+    await withApp(async (app, directory) => {
+      const file = join(directory, "digits.txt");
+      const modified = new Date("2026-01-01T00:00:00.000Z");
+      await utimes(file, modified, modified);
+      const first = await get(app, "/digits.txt");
+      await first.body?.cancel();
+
+      await writeFile(file, "9876543210");
+      await utimes(file, modified, modified);
+      const response = await get(app, "/digits.txt", {
+        headers: { "If-None-Match": first.headers.get("ETag")! },
+      });
+      expect(response.status).toEqual(200);
+      expect(response.headers.get("ETag")).not.toEqual(
+        first.headers.get("ETag"),
+      );
+      expect(await response.text()).toEqual("9876543210");
+    });
+  });
+
+  it("gives the same content the same ETag", async () => {
+    await withFixture(async (directory) => {
+      await writeFile(join(directory, "a.txt"), "same");
+      await writeFile(join(directory, "b.txt"), "same");
+      const modified = new Date("2026-01-01T00:00:00.000Z");
+      await utimes(join(directory, "b.txt"), modified, modified);
+      const app = await loadStaticFiles(new App(), { directory });
+
+      const a = await get(app, "/a.txt", { method: "HEAD" });
+      const b = await get(app, "/b.txt", { method: "HEAD" });
+      expect(a.headers.get("ETag")).toEqual(b.headers.get("ETag"));
+    });
+  });
+
+  it("hashes a version of a file once", async () => {
+    await withApp(async (app, directory) => {
+      const first = await get(app, "/digits.txt");
+      await first.body?.cancel();
+
+      let reads = 0;
+      const file = join(directory, "digits.txt");
+      await beforeFileHandle(
+        file,
+        "read",
+        () => reads++,
+        async () => {
+          const response = await get(app, "/digits.txt", { method: "HEAD" });
+          expect(response.headers.get("ETag")).toEqual(
+            first.headers.get("ETag"),
+          );
+        },
+      );
+      expect(reads).toEqual(0);
+    });
+  });
+
+  it("tags files over 16 MiB by their metadata", async () => {
+    await withFixture(async (directory) => {
+      const size = 16 * 1024 * 1024 + 1;
+      const file = join(directory, "large.bin");
+      await writeFile(file, new Uint8Array(size));
+      const app = await loadStaticFiles(new App(), { directory });
+
+      let reads = 0;
+      let etag = "";
+      await beforeFileHandle(
+        file,
+        "read",
+        () => reads++,
+        async () => {
+          const response = await get(app, "/large.bin", { method: "HEAD" });
+          etag = response.headers.get("ETag")!;
+        },
+      );
+      expect(reads).toEqual(0);
+      expect(etag).toMatch(/^"[0-9a-f]+(-[0-9a-f]+){4}"$/);
+
+      const cached = await get(app, "/large.bin", {
+        headers: { "If-None-Match": etag },
+      });
+      expect(cached.status).toEqual(304);
+
+      // Unhashed files are checked while they are read, too.
+      await withShrinkingFile(file, "read", 1, async () => {
+        const response = await get(app, "/large.bin");
+        expect(response.headers.get("Content-Length")).toEqual(
+          String(size - 1),
+        );
+        expect((await response.arrayBuffer()).byteLength).toEqual(size - 1);
+      });
     });
   });
 
@@ -472,7 +572,8 @@ describe("static file responses", () => {
 
   it("answers with the new version of a file shortened while it is read", async () => {
     await withApp(async (app, directory) => {
-      await withShrinkingFile(join(directory, "digits.txt"), 1, async () => {
+      const file = join(directory, "digits.txt");
+      await withShrinkingFile(file, "read", 1, async () => {
         const response = await get(app, "/digits.txt");
         expect(response.status).toEqual(200);
         expect(response.headers.get("Content-Length")).toEqual("9");
@@ -485,7 +586,8 @@ describe("static file responses", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       await withApp(async (app, directory) => {
-        await withShrinkingFile(join(directory, "digits.txt"), 2, async () => {
+        const file = join(directory, "digits.txt");
+        await withShrinkingFile(file, "read", Infinity, async () => {
           const response = await get(app, "/digits.txt");
           expect(response.status).toEqual(500);
           await response.body?.cancel();
@@ -498,7 +600,8 @@ describe("static file responses", () => {
 
   it("fails a stream that ends before its Content-Length", async () => {
     await withApp(async (app, directory) => {
-      await withShrinkingFile(join(directory, "digits.txt"), 1, async () => {
+      const file = join(directory, "digits.txt");
+      await withShrinkingFile(file, "createReadStream", 1, async () => {
         const response = await get(app, "/digits.txt");
         expect(response.headers.get("Content-Length")).toEqual("10");
         await expect(response.text()).rejects.toThrow();

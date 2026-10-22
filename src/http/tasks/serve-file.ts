@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import type { BigIntStats } from "node:fs";
 import { type FileHandle, open } from "node:fs/promises";
 import { isProd } from "../../utils/environment.ts";
 import { NotFoundException } from "../exceptions/not-found-exception.ts";
@@ -14,7 +16,16 @@ export type ServeFileOptions = {
 
 type ByteRange = { start: number; end: number };
 
-/** The file got shorter while it was read. */
+/** Larger files get their ETag from their metadata instead of a hash. */
+const HASHED_SIZE_LIMIT = 16 * 1024 * 1024;
+
+type Tag = { version: string; etag: Promise<string> };
+
+// The ETags of the files served so far, by path, with the version of the
+// file they were computed for.
+const tags = new Map<string, Tag>();
+
+/** The file changed while it was read. */
 class FileChangedError extends Error {}
 
 /**
@@ -53,10 +64,11 @@ async function respond(
 
   let streaming = false;
   try {
-    const stats = await handle.stat();
+    const stats = await handle.stat({ bigint: true });
     if (!stats.isFile()) throw new NotFoundException();
+    const size = Number(stats.size);
 
-    const etag = `"${stats.size.toString(16)}-${Math.floor(stats.mtimeMs).toString(16)}"`;
+    const etag = await entityTag(handle, path, stats);
     const headers = new Headers({
       "Content-Type": options.contentType,
       ETag: etag,
@@ -73,21 +85,18 @@ async function respond(
 
     // Ranges are only defined for GET (RFC 9110, 14.2).
     const range =
-      request.method === "GET"
-        ? byteRange(request, stats.size, etag)
-        : undefined;
+      request.method === "GET" ? byteRange(request, size, etag) : undefined;
     if (range === null) {
-      headers.set("Content-Range", `bytes */${stats.size}`);
+      headers.set("Content-Range", `bytes */${size}`);
       return new Response(null, {
         status: HttpStatus.RANGE_NOT_SATISFIABLE,
         headers,
       });
     }
-    const { start, end } = range ?? { start: 0, end: stats.size - 1 };
+    const { start, end } = range ?? { start: 0, end: size - 1 };
     const length = end - start + 1;
     headers.set("Content-Length", String(length));
-    if (range)
-      headers.set("Content-Range", `bytes ${start}-${end}/${stats.size}`);
+    if (range) headers.set("Content-Range", `bytes ${start}-${end}/${size}`);
     const status = range ? HttpStatus.PARTIAL_CONTENT : HttpStatus.OK;
 
     if (request.method === "HEAD" || length === 0) {
@@ -105,6 +114,70 @@ async function respond(
     // A streamed file is closed when its stream ends.
     if (!streaming) await handle.close();
   }
+}
+
+/**
+ * A hash of the content, so a file gets a new tag whenever its content
+ * changes, even when its size and modification time stay the same, and the
+ * same tag on every server. It's computed once per version of the file.
+ * Files over `HASHED_SIZE_LIMIT` get a tag from their metadata, which also
+ * changes with the content, but differs between servers.
+ */
+async function entityTag(
+  handle: FileHandle,
+  path: string,
+  stats: BigIntStats,
+): Promise<string> {
+  const version = versionOf(stats);
+  if (stats.size > HASHED_SIZE_LIMIT) return `"${version}"`;
+
+  const cached = tags.get(path);
+  if (cached?.version === version) return cached.etag;
+  // Concurrent requests for a new version share one hash.
+  const etag = hash(handle, Number(stats.size), version);
+  tags.set(path, { version, etag });
+  try {
+    return await etag;
+  } catch (e) {
+    if (tags.get(path)?.etag === etag) tags.delete(path);
+    throw e;
+  }
+}
+
+async function hash(
+  handle: FileHandle,
+  size: number,
+  version: string,
+): Promise<string> {
+  const digest = createHash("sha1");
+  const buffer = new Uint8Array(Math.min(size, 64 * 1024));
+  let offset = 0;
+  while (offset < size) {
+    const { bytesRead } = await handle.read(
+      buffer,
+      0,
+      Math.min(buffer.length, size - offset),
+      offset,
+    );
+    if (bytesRead === 0) break;
+    digest.update(buffer.subarray(0, bytesRead));
+    offset += bytesRead;
+  }
+  // A tag for content that changed while it was hashed would be wrong.
+  if (
+    offset < size ||
+    versionOf(await handle.stat({ bigint: true })) !== version
+  ) {
+    throw new FileChangedError("The file changed while it was hashed");
+  }
+  return `"${digest.digest("base64url")}"`;
+}
+
+// The ctime changes with every write, also when the mtime is restored.
+function versionOf(stats: BigIntStats): string {
+  return [stats.dev, stats.ino, stats.size, stats.mtimeNs, stats.ctimeNs]
+    .map((value) => value.toString(16))
+    .join("-");
 }
 
 async function read(
