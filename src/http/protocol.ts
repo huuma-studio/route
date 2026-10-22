@@ -134,17 +134,17 @@ export class HttpProtocol<T extends AppContext> implements Protocol<T> {
     const ctx = new RequestContext(request, connection, platform);
 
     let response: Response;
-    let outcome: HookType;
+    let outcome: HookType = HookType.REQUEST_ERROR;
     try {
       response = await handle(ctx, this.#chain, this.#router.resolve);
       outcome = HookType.REQUEST_SUCCESS;
     } catch (error: unknown) {
       response = handleException(error);
-      outcome = HookType.REQUEST_ERROR;
+    } finally {
+      // Also when building the error response fails. The response doesn't
+      // wait for the hooks' promises; waitUntil keeps them alive on Workers.
+      ctx.waitUntil(this.#afterResponse(ctx, outcome));
     }
-    // The hooks run after the response is returned, without delaying it.
-    // waitUntil keeps them alive on Workers.
-    ctx.waitUntil(this.#afterResponse(ctx, outcome));
     return response;
   }
 

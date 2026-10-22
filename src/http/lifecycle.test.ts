@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { App } from "../app.ts";
 import { HookType } from "../protocol.ts";
+import { HttpException } from "./exceptions/http-exception.ts";
 import { NotFoundException } from "./exceptions/not-found-exception.ts";
+import { HttpStatus } from "./http-status.ts";
 import type { RequestContext } from "./request.ts";
 
 type Context = { State: { user: string } };
@@ -63,6 +65,27 @@ describe("request hooks", () => {
     const response = await app.init()(request());
     expect(await response.text()).toBe("ok");
     release();
+  });
+
+  it("run and clear the state when building the error response fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { app, events } = hookedApp();
+    // Makes handleException throw, as Response.json() does on Node.js for
+    // an HttpException with status 204.
+    app.get("/broken", () => {
+      const exception = new HttpException("", HttpStatus.BAD_REQUEST);
+      Object.defineProperty(exception, "status", {
+        get() {
+          throw new TypeError("broken status");
+        },
+      });
+      throw exception;
+    });
+    await expect(app.init()(request("/broken"))).rejects.toThrow(
+      "broken status",
+    );
+    await vi.waitFor(() => expect(events).toHaveLength(2));
+    expect(events).toEqual(["request:error ada", "request:finally ada"]);
   });
 
   it("are kept alive with waitUntil on Workers", async () => {
