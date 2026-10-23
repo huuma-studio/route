@@ -9,6 +9,7 @@ import { serveFile } from "./serve-file.ts";
 const DEFAULT_DIRECTORY = "static";
 
 export type StaticFilesOptions = {
+  /** Stream file responses. Set false to buffer the whole file. Default: true. */
   enableResponseStreaming?: boolean;
   directory?: string;
   path?: string;
