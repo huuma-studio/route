@@ -13,7 +13,7 @@ export interface CorsOptions {
   allowedCorsMethods?: HttpMethod[];
   /** Response headers the browser may expose to scripts. */
   exposedCorsHeaders?: string[];
-  /** Allow cookies and HTTP authentication. Default: false. */
+  /** Allow cookies and HTTP authentication. Not allowed with `*`. Default: false. */
   allowCredentials?: boolean;
   /** Seconds a browser may cache a preflight response. */
   maxAge?: number;
@@ -23,6 +23,8 @@ export interface CorsOptions {
  * Answers CORS preflight requests and adds CORS headers to responses,
  * including error responses. Add it as app middleware, because preflight
  * `OPTIONS` requests don't match routes.
+ *
+ * @throws {TypeError} When `allowCredentials` is combined with the origin `*`.
  */
 export function Cors({
   allowedCorsDomains,
@@ -32,6 +34,17 @@ export function Cors({
   allowCredentials,
   maxAge,
 }: CorsOptions): Middleware {
+  // The allowed origin is sent back as it is, so `*` with credentials would
+  // let any website send requests with the user's cookies and read the
+  // responses. Browsers refuse a literal `*` with credentials for this reason.
+  if (allowCredentials && allowedCorsDomains?.includes("*")) {
+    throw new TypeError(
+      "Cors: `allowCredentials` can't be combined with the origin `*`, " +
+        "because any website could then read responses with the user's " +
+        "credentials. List the allowed origins instead.",
+    );
+  }
+
   const isAllowed = (origin: string) =>
     !!allowedCorsDomains?.some((domain) => domain === "*" || domain === origin);
 

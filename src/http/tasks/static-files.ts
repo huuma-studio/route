@@ -13,6 +13,7 @@ const DEFAULT_DIRECTORY = "static";
 const WELL_KNOWN = ".well-known";
 
 export type StaticFilesOptions = {
+  /** Stream file responses. Set false to buffer the whole file. Default: true. */
   enableResponseStreaming?: boolean;
   directory?: string;
   path?: string;

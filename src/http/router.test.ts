@@ -111,11 +111,16 @@ describe("Router", () => {
   });
 
   describe("duplicates", () => {
-    it("rejects the same method and path twice", () => {
+    it("warns about the same method and path twice and keeps the first", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       const app = new App();
-      app.get("/a", () => new Response());
-      expect(() => app.get("/a", () => new Response())).toThrow(
-        "Route for GET /a already exists",
+      app.get("/a", () => new Response("first"));
+      app.get("/a", () => new Response("second"));
+      const handle = app.init();
+
+      expect(await (await handle(request("/a"))).text()).toBe("first");
+      expect(warn.mock.calls.flat().join(" ")).toContain(
+        "GET /a is registered twice",
       );
     });
 
@@ -126,10 +131,37 @@ describe("Router", () => {
       app.group("/api", [app.get("/a", () => new Response("second"))]);
       const handle = app.init();
 
+      expect(await (await handle(request("/api/a"))).text()).toBe("first");
       expect(warn.mock.calls.flat().join(" ")).toContain(
         "GET /api/a is registered twice",
       );
-      expect(await (await handle(request("/api/a"))).text()).toBe("first");
+    });
+
+    it("allows a grouped route with the path of a route outside the group", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const app = new App();
+      app.get("/users", () => new Response("top"));
+      app.group("/api", [app.get("/users", () => new Response("api"))]);
+      const handle = app.init();
+
+      expect(await (await handle(request("/users"))).text()).toBe("top");
+      expect(await (await handle(request("/api/users"))).text()).toBe("api");
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("warns about duplicates added by APPLICATION_INIT listeners", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const app = new App();
+      app.get("/a", () => new Response("first"));
+      app.on("application:init", (app) => {
+        app.get("/a", () => new Response("second"));
+      });
+      const handle = app.init();
+
+      expect(await (await handle(request("/a"))).text()).toBe("first");
+      expect(warn.mock.calls.flat().join(" ")).toContain(
+        "GET /a is registered twice",
+      );
     });
   });
 });
