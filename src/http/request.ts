@@ -134,7 +134,8 @@ export function method(request: Request): HttpMethod {
 
 export function getSearchParams(request: Request): SearchParams {
   const searchParams = new URLSearchParams(new URL(request.url).search);
-  const searchEntries: SearchParams = {};
+  // Query names are untrusted, including `__proto__` and `constructor`.
+  const searchEntries: SearchParams = Object.create(null);
 
   for (const key of searchParams.keys()) {
     const searchParam = searchParams.getAll(key);
