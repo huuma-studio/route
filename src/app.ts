@@ -109,9 +109,10 @@ export class App<T extends AppContext = any> {
     if (this.#ready) return this.handle;
     // Defer invocation so synchronous custom protocol errors also reject
     // the shared readiness promise, which is installed before hooks run.
-    this.#ready = Promise.resolve().then(() =>
-      this.#options.protocol.hook(HookType.APPLICATION_INIT, this),
-    );
+    this.#ready = Promise.resolve()
+      .then(() => this.#options.protocol.hook(HookType.APPLICATION_INIT, this))
+      // Listed once the listeners have run, as they can add routes too.
+      .then(() => this.#options.protocol.router.list());
     // Observe failures even when init() is called before the first request,
     // but keep #ready rejected so no request can use partial initialization.
     void this.#ready.catch((reason: unknown) => {
@@ -122,7 +123,6 @@ export class App<T extends AppContext = any> {
           : String(reason),
       );
     });
-    this.#options.protocol.router.list();
     return this.handle;
   }
 
