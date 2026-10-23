@@ -1,6 +1,6 @@
 import type { HttpMethod } from "./http-method.ts";
 import type { Handler, RouteParams } from "./request.ts";
-import type { Middleware } from "../middleware/middleware.ts";
+import { handle, type Middleware } from "../middleware/middleware.ts";
 import type { AppContext } from "../app.ts";
 
 export class Route<T extends AppContext> {
@@ -53,9 +53,6 @@ export class RouteGroup<T extends AppContext> {
     } else {
       this.chain.push(middleware);
     }
-    this.routes.forEach((toRoute) => {
-      this.#prependMiddleware(toRoute);
-    });
     return this;
   }
 
@@ -87,6 +84,12 @@ export class RouteGroup<T extends AppContext> {
   }
 
   #prependMiddleware(toRoute: Route<T>): void {
-    toRoute.chain = [...this.chain, ...toRoute.chain];
+    // Attach the group once, reading its current chain on each request.
+    // Later additions keep their order without duplicating earlier entries
+    // or moving an inner group ahead of an outer group's middleware.
+    toRoute.chain = [
+      (ctx, next) => handle(ctx, this.chain, next),
+      ...toRoute.chain,
+    ];
   }
 }
