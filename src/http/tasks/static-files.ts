@@ -28,11 +28,17 @@ export async function loadStaticFiles(
   app: App,
   options?: StaticFilesOptions,
 ): Promise<App> {
-  await loadDirectory(
-    app,
-    { ...options, directory: options?.directory ?? DEFAULT_DIRECTORY },
-    [],
-  );
+  const directory = options?.directory ?? DEFAULT_DIRECTORY;
+  // `path` is part of the URL, so it follows the same policy as the names
+  // found while loading.
+  if (!options?.dotfiles && options?.path?.split("/").some(isHidden)) {
+    log(
+      "HTTP CONTEXT",
+      `Skipped '${filePath(directory, options.path)}', a hidden path`,
+    );
+    return app;
+  }
+  await loadDirectory(app, { ...options, directory }, []);
   return app;
 }
 
@@ -136,7 +142,9 @@ export function routePath(path: string): string {
 }
 
 function isHidden(name: string): boolean {
-  return name.startsWith(".") && name !== WELL_KNOWN;
+  return (
+    name.startsWith(".") && name !== "." && name !== ".." && name !== WELL_KNOWN
+  );
 }
 
 function filePath(directory: string, path?: string): string {

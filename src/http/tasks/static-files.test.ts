@@ -156,6 +156,7 @@ describe("loadStaticFiles", () => {
       ".env": "SECRET=1",
       ".git/config": "[core]",
       "css/.cache": "cached",
+      "css/.private/key.txt": "key",
       ".well-known/security.txt": "Contact: mailto:security@example.com",
       ".well-known/.hidden": "hidden",
     };
@@ -180,6 +181,7 @@ describe("loadStaticFiles", () => {
           "/.env",
           "/.git/config",
           "/css/.cache",
+          "/css/.private/key.txt",
           "/.well-known/.hidden",
         ]) {
           const response = await get(app, path);
@@ -198,6 +200,48 @@ describe("loadStaticFiles", () => {
         expect(await response.text()).toEqual(
           HIDDEN[".well-known/security.txt"],
         );
+      });
+    });
+
+    it("skips a hidden path option", async () => {
+      await withHiddenFiles(async (directory) => {
+        for (const [path, file] of [
+          [".git", "/.git/config"],
+          ["css/.private", "/css/.private/key.txt"],
+        ]) {
+          const app = await loadStaticFiles(new App(), { directory, path });
+          const response = await get(app, file);
+          await response.body?.cancel();
+          expect(response.status, path).toEqual(404);
+        }
+      });
+    });
+
+    it("serves a hidden path option with dotfiles: true", async () => {
+      await withHiddenFiles(async (directory) => {
+        const app = await loadStaticFiles(new App(), {
+          directory,
+          path: "css/.private",
+          dotfiles: true,
+        });
+        const response = await get(app, "/css/.private/key.txt");
+        expect(response.status).toEqual(200);
+        expect(await response.text()).toEqual("key");
+      });
+    });
+
+    it("serves .well-known as the path option", async () => {
+      await withHiddenFiles(async (directory) => {
+        const app = await loadStaticFiles(new App(), {
+          directory,
+          path: ".well-known",
+        });
+        const served = await get(app, "/.well-known/security.txt");
+        expect(served.status).toEqual(200);
+        expect(await served.text()).toEqual(HIDDEN[".well-known/security.txt"]);
+        const hidden = await get(app, "/.well-known/.hidden");
+        await hidden.body?.cancel();
+        expect(hidden.status).toEqual(404);
       });
     });
 
