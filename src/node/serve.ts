@@ -29,6 +29,12 @@ export type ServeOptions = {
    * listening, `serve` rejects with the abort reason and no server stays open.
    */
   signal?: AbortSignal;
+  /**
+   * Grace period in milliseconds after shutdown starts, before remaining
+   * connections are forcibly closed. Default: 30_000. Use 0 for no grace
+   * period. Must be an integer between 0 and 2_147_483_647.
+   */
+  shutdownTimeout?: number;
 } & ToRequestOptions;
 
 export type ToRequestOptions = {
@@ -46,7 +52,10 @@ export type NodeServer = {
   port: number;
   /** Resolves once the server is closed. */
   finished: Promise<void>;
-  /** Stops accepting connections and resolves once the server is closed. */
+  /**
+   * Stops accepting connections, lets requests finish during the configured
+   * grace period, then closes any remaining connections. Resolves once closed.
+   */
   shutdown(): Promise<void>;
 };
 
@@ -87,13 +96,30 @@ export function serve(
 ): Promise<NodeServer> {
   const signal = options?.signal;
   if (signal?.aborted) return Promise.reject(signal.reason);
+  const shutdownTimeout = options?.shutdownTimeout ?? 30_000;
+  if (
+    !Number.isInteger(shutdownTimeout) ||
+    shutdownTimeout < 0 ||
+    shutdownTimeout > 2_147_483_647
+  ) {
+    return Promise.reject(
+      new RangeError(
+        "shutdownTimeout must be an integer between 0 and 2147483647",
+      ),
+    );
+  }
 
   const server = createServer((req, res) => {
     void respond(handler, req, res, { trustProxy: options?.trustProxy });
   });
 
+  let shutdownTimer: ReturnType<typeof setTimeout> | undefined;
   const finished = new Promise<void>((resolve) => {
-    server.once("close", () => resolve());
+    server.once("close", () => {
+      clearTimeout(shutdownTimer);
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    });
   });
   // Tracked here because `server.listening` turns true before the listen
   // callback on Bun; closing then would skip the callback.
@@ -101,17 +127,29 @@ export function serve(
   const shutdown = (): Promise<void> => {
     if (started) {
       started = false;
+      // Start the deadline only once. It must not keep an otherwise closed
+      // server alive, and the close event clears it after graceful completion.
+      shutdownTimer = setTimeout(
+        () => server.closeAllConnections(),
+        shutdownTimeout,
+      );
+      shutdownTimer.unref();
       server.close();
       server.closeIdleConnections();
     }
     return finished;
   };
-  signal?.addEventListener("abort", () => void shutdown(), { once: true });
+  const onAbort = () => void shutdown();
+  signal?.addEventListener("abort", onAbort, { once: true });
 
   return new Promise((resolve, reject) => {
-    server.once("error", reject);
+    const onError = (error: Error) => {
+      signal?.removeEventListener("abort", onAbort);
+      reject(error);
+    };
+    server.once("error", onError);
     server.listen(options?.port ?? 8000, options?.hostname ?? "0.0.0.0", () => {
-      server.off("error", reject);
+      server.off("error", onError);
       started = true;
       // Aborted while starting: the abort listener found nothing to close yet.
       if (signal?.aborted) {
