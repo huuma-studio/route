@@ -151,6 +151,71 @@ describe("loadStaticFiles", () => {
     });
   });
 
+  describe("hidden files", () => {
+    const HIDDEN: Record<string, string> = {
+      ".env": "SECRET=1",
+      ".git/config": "[core]",
+      "css/.cache": "cached",
+      ".well-known/security.txt": "Contact: mailto:security@example.com",
+      ".well-known/.hidden": "hidden",
+    };
+
+    async function withHiddenFiles(
+      fn: (directory: string) => Promise<void>,
+    ): Promise<void> {
+      await withFixture(async (directory) => {
+        for (const [path, content] of Object.entries(HIDDEN)) {
+          const file = join(directory, path);
+          await mkdir(join(file, ".."), { recursive: true });
+          await writeFile(file, content);
+        }
+        await fn(directory);
+      });
+    }
+
+    it("skips files and directories whose names start with a dot", async () => {
+      await withHiddenFiles(async (directory) => {
+        const app = await loadStaticFiles(new App(), { directory });
+        for (const path of [
+          "/.env",
+          "/.git/config",
+          "/css/.cache",
+          "/.well-known/.hidden",
+        ]) {
+          const response = await get(app, path);
+          await response.body?.cancel();
+          expect(response.status, path).toEqual(404);
+        }
+        expect((await get(app, "/css/app.css")).status).toEqual(200);
+      });
+    });
+
+    it("serves .well-known", async () => {
+      await withHiddenFiles(async (directory) => {
+        const app = await loadStaticFiles(new App(), { directory });
+        const response = await get(app, "/.well-known/security.txt");
+        expect(response.status).toEqual(200);
+        expect(await response.text()).toEqual(
+          HIDDEN[".well-known/security.txt"],
+        );
+      });
+    });
+
+    it("serves hidden files with dotfiles: true", async () => {
+      await withHiddenFiles(async (directory) => {
+        const app = await loadStaticFiles(new App(), {
+          directory,
+          dotfiles: true,
+        });
+        for (const [path, content] of Object.entries(HIDDEN)) {
+          const response = await get(app, `/${path}`);
+          expect(response.status, path).toEqual(200);
+          expect(await response.text()).toEqual(content);
+        }
+      });
+    });
+  });
+
   it("sets the content type from the file extension", async () => {
     await withFixture(async (directory) => {
       const app = await loadStaticFiles(new App(), { directory });

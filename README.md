@@ -323,6 +323,8 @@ Favicon("public/favicon.ico", app);
 
 Files are answered for `GET` and `HEAD` with `ETag` and `Last-Modified` (so revalidation gets `304 Not Modified`) and single byte ranges (`206 Partial Content`). The `ETag` is a hash of the content, computed once per version of a file, so it changes with every change and is the same on every server. Files over 16 MiB get a tag from their metadata instead, which also changes with every change but differs between servers. A file removed after loading answers `404`. Symlinked files and directories are followed; directory loops are skipped.
 
+Hidden files and directories, whose names start with a dot (`.env`, `.git`), aren't served, except `.well-known`. Set `dotfiles: true` to serve them too.
+
 ## Controllers
 
 For more structured applications, you can use controllers:
