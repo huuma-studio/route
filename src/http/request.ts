@@ -137,13 +137,17 @@ export function getSearchParams(request: Request): SearchParams {
   // Query names are untrusted, including `__proto__` and `constructor`.
   const searchEntries: SearchParams = Object.create(null);
 
-  for (const key of searchParams.keys()) {
-    const searchParam = searchParams.getAll(key);
-
-    searchEntries[key] =
-      searchParam.length <= 1
-        ? (searchEntries[key] = searchParam[0])
-        : (searchEntries[key] = searchParam);
+  for (const [key, value] of searchParams) {
+    const previous = Object.hasOwn(searchEntries, key)
+      ? searchEntries[key]
+      : undefined;
+    if (previous === undefined) {
+      searchEntries[key] = value;
+    } else if (Array.isArray(previous)) {
+      previous.push(value);
+    } else {
+      searchEntries[key] = [previous, value];
+    }
   }
 
   return searchEntries;
