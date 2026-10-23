@@ -1,12 +1,16 @@
 import { readdir, realpath, stat } from "node:fs/promises";
 import type { App } from "../../app.ts";
 import { extension } from "../../utils/file.ts";
-import { warn as log } from "../../utils/logger.ts";
+import { debug, warn as log } from "../../utils/logger.ts";
 import { mimeTypeByExtension } from "../../utils/mime-types.ts";
 import type { RequestContext } from "../request.ts";
 import { serveFile } from "./serve-file.ts";
 
 const DEFAULT_DIRECTORY = "static";
+
+// Served even though it is hidden: RFC 8615 URIs such as ACME challenges
+// and `security.txt`.
+const WELL_KNOWN = ".well-known";
 
 export type StaticFilesOptions = {
   /** Stream file responses. Set false to buffer the whole file. Default: true. */
@@ -14,17 +18,28 @@ export type StaticFilesOptions = {
   directory?: string;
   path?: string;
   maxAge?: number;
+  /**
+   * Serve hidden files and directories, whose names start with a dot, such
+   * as `.env` or `.git`. `.well-known` is always served. Default: false.
+   */
+  dotfiles?: boolean;
 };
 
 export async function loadStaticFiles(
   app: App,
   options?: StaticFilesOptions,
 ): Promise<App> {
-  await loadDirectory(
-    app,
-    { ...options, directory: options?.directory ?? DEFAULT_DIRECTORY },
-    [],
-  );
+  const directory = options?.directory ?? DEFAULT_DIRECTORY;
+  // `path` is part of the URL, so it follows the same policy as the names
+  // found while loading.
+  if (!options?.dotfiles && options?.path?.split("/").some(isHidden)) {
+    log(
+      "HTTP CONTEXT",
+      `Skipped '${filePath(directory, options.path)}', a hidden path`,
+    );
+    return app;
+  }
+  await loadDirectory(app, { ...options, directory }, []);
   return app;
 }
 
@@ -52,6 +67,13 @@ async function loadDirectory(
 
   for (const file of files) {
     const path = options.path ? `${options.path}/${file.name}` : file.name;
+    if (!options.dotfiles && isHidden(file.name)) {
+      debug(
+        "HTTP CONTEXT",
+        `Skipped '${filePath(directory, path)}', a hidden file`,
+      );
+      continue;
+    }
     try {
       // Follow symlinks to tell files and directories apart.
       const isDirectory = file.isSymbolicLink()
@@ -118,6 +140,12 @@ export function routePath(path: string): string {
   );
   const { pathname } = new URL(encoded, "http://localhost");
   return pathname.replace(/[:*+?(){}\\]/g, "\\$&");
+}
+
+function isHidden(name: string): boolean {
+  return (
+    name.startsWith(".") && name !== "." && name !== ".." && name !== WELL_KNOWN
+  );
 }
 
 function filePath(directory: string, path?: string): string {
