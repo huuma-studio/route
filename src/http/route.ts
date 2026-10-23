@@ -36,6 +36,7 @@ export class RouteGroup<T extends AppContext> {
   chain: Middleware[] = [];
   routes: Route<T>[] = [];
 
+  /** @deprecated Use `use()` or `middleware()` instead. */
   link = this.middleware;
 
   constructor(prefix: string, route?: Route<T>[]) {
