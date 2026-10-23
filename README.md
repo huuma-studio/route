@@ -221,7 +221,7 @@ import { Cors } from "jsr:@huuma/route/middleware/cors";
 
 app.middleware(
   Cors({
-    allowedCorsDomains: ["https://app.example"], // or ["*"]
+    allowedCorsDomains: ["https://app.example"], // or ["*"], without credentials
     allowCredentials: true,
     exposedCorsHeaders: ["X-Total-Count"],
     maxAge: 600,
