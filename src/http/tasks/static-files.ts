@@ -97,9 +97,8 @@ export function registerStaticFiles(
       streaming: options.enableResponseStreaming,
       maxAge: options.maxAge,
     });
-  const route = routePath(options.path);
-  app.get(route, handler);
-  app.head(route, handler);
+  // HEAD requests fall back to the GET route.
+  app.get(routePath(options.path), handler);
   return app;
 }
 

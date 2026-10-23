@@ -14,6 +14,6 @@ export function Favicon(path: string, app: App) {
       contentType: "image/vnd.microsoft.icon",
       streaming: true,
     });
+  // HEAD requests fall back to the GET route.
   app.get("/favicon.ico", handler);
-  app.head("/favicon.ico", handler);
 }
