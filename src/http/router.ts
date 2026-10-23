@@ -13,14 +13,36 @@ import {
   type UrlParams,
 } from "./request.ts";
 import { Route } from "./route.ts";
+import { routeRevision } from "./route-revision.ts";
 
 type RouteMatch<T extends AppContext> = {
   route: Route<T>;
   params?: UrlParams;
 };
 
+// A route with its registration position, as the first match wins.
+type Entry<T extends AppContext> = { route: Route<T>; position: number };
+
+type MethodIndex<T extends AppContext> = {
+  // The first route of each exact path, such as `/users`.
+  exact: Map<string, Entry<T>>;
+  // Routes with parameters or wildcards, in registration order.
+  patterns: Entry<T>[];
+};
+
+type RouteIndex<T extends AppContext> = {
+  revision: number;
+  methods: Map<HttpMethod, MethodIndex<T>>;
+  // For the `Allow` header of a 405.
+  exactMethods: Map<string, Entry<T>[]>;
+  patterns: Entry<T>[];
+};
+
 export class Router<T extends AppContext> {
   #routes: Route<T>[] = [];
+  // Exact paths are looked up instead of matched one by one, so apps with
+  // many static files don't slow down every request.
+  #index?: RouteIndex<T>;
 
   list() {
     const seen = new Set<string>();
@@ -119,21 +141,77 @@ export class Router<T extends AppContext> {
   };
 
   #match(pathname: string, method: HttpMethod): RouteMatch<T> | undefined {
-    for (const route of this.#routes) {
-      // Compare the method first; it is cheaper than matching the path.
-      if (route.method !== method) continue;
+    const index = this.#indexed().methods.get(method);
+    if (!index) return undefined;
+    const exact = index.exact.get(pathname);
+    // A pattern registered before the exact route still comes first.
+    for (const { route, position } of index.patterns) {
+      if (exact && position > exact.position) break;
       const result = route.path.exec({ pathname });
       if (result) return { route, params: result.pathname.groups };
     }
-    return undefined;
+    return exact && { route: exact.route, params: {} };
   }
 
   #allowedMethods(pathname: string): string[] {
-    const allow = new Set<string>();
-    for (const route of this.#routes) {
-      if (route.path.test({ pathname })) allow.add(route.method);
-    }
+    const index = this.#indexed();
+    const matches = [
+      ...(index.exactMethods.get(pathname) ?? []),
+      ...index.patterns.filter(({ route }) => route.path.test({ pathname })),
+    ].sort((a, b) => a.position - b.position);
+    const allow = new Set(matches.map(({ route }) => route.method));
     if (allow.has(HttpMethod.GET)) allow.add(HttpMethod.HEAD);
     return [...allow];
   }
+
+  #indexed(): RouteIndex<T> {
+    const revision = routeRevision();
+    if (this.#index?.revision === revision) return this.#index;
+    const index: RouteIndex<T> = {
+      revision,
+      methods: new Map(),
+      exactMethods: new Map(),
+      patterns: [],
+    };
+    this.#routes.forEach((route, position) => {
+      const entry = { route, position };
+      let methodIndex = index.methods.get(route.method);
+      if (!methodIndex) {
+        methodIndex = { exact: new Map(), patterns: [] };
+        index.methods.set(route.method, methodIndex);
+      }
+      const path = exactPath(route.path);
+      if (path === undefined) {
+        methodIndex.patterns.push(entry);
+        index.patterns.push(entry);
+      } else if (!methodIndex.exact.has(path)) {
+        methodIndex.exact.set(path, entry);
+        const methods = index.exactMethods.get(path) ?? [];
+        methods.push(entry);
+        index.exactMethods.set(path, methods);
+      }
+    });
+    this.#index = index;
+    return index;
+  }
+}
+
+// URLPattern syntax; a backslash escapes the next character.
+const PATTERN_SYNTAX = new Set([":", "*", "(", ")", "{", "}", "+", "?"]);
+
+/**
+ * The one path a pattern matches, such as `/users` for `/users` or `/a:b`
+ * for `/a\:b`, or `undefined` for a pattern with parameters or wildcards.
+ */
+function exactPath(pattern: URLPattern): string | undefined {
+  const source = pattern.pathname;
+  let path = "";
+  for (let i = 0; i < source.length; i++) {
+    let char = source[i];
+    if (char === "\\") char = source[++i] ?? "";
+    else if (PATTERN_SYNTAX.has(char)) return undefined;
+    path += char;
+  }
+  // Leaves anything this parser misreads to pattern matching.
+  return pattern.test({ pathname: path }) ? path : undefined;
 }

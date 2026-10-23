@@ -2,10 +2,27 @@ import type { HttpMethod } from "./http-method.ts";
 import type { Handler, RouteParams } from "./request.ts";
 import { handle, type Middleware } from "../middleware/middleware.ts";
 import type { AppContext } from "../app.ts";
+import { routeChanged } from "./route-revision.ts";
 
 export class Route<T extends AppContext> {
-  path: URLPattern;
-  method: HttpMethod;
+  #path!: URLPattern;
+  get path(): URLPattern {
+    return this.#path;
+  }
+  set path(path: URLPattern) {
+    this.#path = path;
+    routeChanged();
+  }
+
+  #method!: HttpMethod;
+  get method(): HttpMethod {
+    return this.#method;
+  }
+  set method(method: HttpMethod) {
+    this.#method = method;
+    routeChanged();
+  }
+
   handler: Handler<T>;
   chain: Middleware[] = [];
 

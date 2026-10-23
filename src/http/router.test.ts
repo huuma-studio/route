@@ -52,6 +52,72 @@ describe("Router", () => {
     expect((await app()(request("/nope"))).status).toBe(404);
   });
 
+  describe("exact paths", () => {
+    it("keeps registration order between patterns and exact paths", async () => {
+      const app = new App();
+      app.get("/a/:id", () => new Response("pattern"));
+      app.get("/a/me", () => new Response("exact"));
+      app.get("/b/me", () => new Response("exact"));
+      app.get("/b/:id", () => new Response("pattern"));
+      const handle = app.init();
+
+      expect(await (await handle(request("/a/me"))).text()).toBe("pattern");
+      expect(await (await handle(request("/b/me"))).text()).toBe("exact");
+      expect(await (await handle(request("/b/1"))).text()).toBe("pattern");
+    });
+
+    it("matches escaped and encoded paths", async () => {
+      const app = new App();
+      app.get("/a\\:b", () => new Response("colon"));
+      app.get("/a b/ä", () => new Response("encoded"));
+      const handle = app.init();
+
+      expect(await (await handle(request("/a:b"))).text()).toBe("colon");
+      expect(await (await handle(request("/a%20b/%C3%A4"))).text()).toBe(
+        "encoded",
+      );
+    });
+
+    it("finds routes added or grouped after the first request", async () => {
+      const app = new App();
+      app.get("/", () => new Response("root"));
+      expect((await app.fetch(request("/"))).status).toBe(200);
+
+      const route = app.get("/late", () => new Response("late"));
+      expect(await (await app.fetch(request("/late"))).text()).toBe("late");
+
+      app.group("/api", [route]);
+      expect((await app.fetch(request("/late"))).status).toBe(404);
+      expect(await (await app.fetch(request("/api/late"))).text()).toBe("late");
+    });
+
+    it("lists the allowed methods in registration order", async () => {
+      const app = new App();
+      app.get("/users/:id", () => new Response());
+      app.put("/users/me", () => new Response());
+      app.delete("/users/:id", () => new Response());
+      const response = await app.init()(request("/users/me", "POST"));
+      expect(response.headers.get("allow")).toBe("GET, PUT, DELETE, HEAD");
+    });
+
+    it("doesn't match exact paths one by one", async () => {
+      const app = new App();
+      for (let i = 0; i < 100; i++)
+        app.get(`/files/${i}.js`, () => new Response());
+      app.get("/users/:id", () => new Response("user"));
+      const handle = app.init();
+      await handle(request("/files/0.js"));
+
+      const exec = vi.spyOn(URLPattern.prototype, "exec");
+      const test = vi.spyOn(URLPattern.prototype, "test");
+      expect((await handle(request("/files/99.js"))).status).toBe(200);
+      expect((await handle(request("/users/1"))).status).toBe(200);
+      expect((await handle(request("/nope"))).status).toBe(404);
+      // The one pattern, for /users/1 and twice for /nope (match and Allow).
+      expect(exec.mock.calls.length + test.mock.calls.length).toBe(3);
+    });
+  });
+
   describe("HEAD", () => {
     it("falls back to the GET route without the body", async () => {
       const response = await app()(request("/users", "HEAD"));
