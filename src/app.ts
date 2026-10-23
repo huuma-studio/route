@@ -49,6 +49,7 @@ export class App<T extends AppContext = any> {
     request: Request,
     connection?: ProtocolConnectionInfo,
   ): Promise<Response> => {
+    if (!this.#ready) this.init();
     await this.#ready;
     return this.#options.protocol.handle(request, connection);
   };
@@ -101,12 +102,19 @@ export class App<T extends AppContext = any> {
   /**
    * Runs the APPLICATION_INIT listeners. Requests through `handle` and `fetch`
    * wait until they have finished. Calling it again only returns `handle`.
+   * If initialization fails, current and future requests reject with the
+   * failure instead of running middleware or route handlers.
    */
   init(): this["handle"] {
     if (this.#ready) return this.handle;
-    this.#ready = Promise.resolve(
+    // Defer invocation so synchronous custom protocol errors also reject
+    // the shared readiness promise, which is installed before hooks run.
+    this.#ready = Promise.resolve().then(() =>
       this.#options.protocol.hook(HookType.APPLICATION_INIT, this),
-    ).catch((reason: unknown) => {
+    );
+    // Observe failures even when init() is called before the first request,
+    // but keep #ready rejected so no request can use partial initialization.
+    void this.#ready.catch((reason: unknown) => {
       error(
         "APPLICATION INIT",
         reason instanceof Error

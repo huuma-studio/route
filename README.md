@@ -378,6 +378,8 @@ app.on(HookType.REQUEST_FINALLY, (ctx) => {
 
 The server returns the response without waiting for request hook promises to finish. Hooks start before the response returns, so synchronous listener work can still delay it. First `REQUEST_SUCCESS` or `REQUEST_ERROR` runs, then `REQUEST_FINALLY`, each awaiting its listeners in order. The context state stays available until the last listener has finished. On Cloudflare Workers they run through `ctx.waitUntil`.
 
+Initialization hooks are required setup. `fetch` and `handle` initialize the app once and wait for these hooks, including when `init()` was called earlier. If an initialization hook throws or rejects, later initialization hooks do not run and all current and future requests reject with that failure before running application middleware or handlers. The Node adapter turns that rejection into a `500` response. Initialization is not retried automatically; create a new app or restart the process after correcting the failure. Errors in request hooks are logged and do not prevent subsequent request hooks from running.
+
 ## Validation
 
 For request validation, Huuma/Route can be integrated with [@huuma/validate](https://jsr.io/@huuma/validate):

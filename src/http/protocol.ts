@@ -110,6 +110,9 @@ export class HttpProtocol<T extends AppContext> implements Protocol<T> {
         try {
           await hook(ctx);
         } catch (e) {
+          // Startup is required for serving requests; request hooks remain
+          // best-effort so a failed observer doesn't stop later listeners.
+          if (name === HookType.APPLICATION_INIT) throw e;
           logError(
             `HOOK ${name}`,
             e instanceof Error ? (e.stack ?? e.message) : String(e),
