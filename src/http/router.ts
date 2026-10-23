@@ -76,16 +76,8 @@ export class Router<T extends AppContext> {
       method: toRoute.method,
       handler,
     });
-    const existingRoute = this.#routes.find((route) => {
-      return (
-        route.path.pathname === toRoute.path && route.method === toRoute.method
-      );
-    });
-    if (existingRoute) {
-      throw new Error(
-        `Route for ${toRoute.method} ${toRoute.path} already exists`,
-      );
-    }
+    // No duplicate check here: a group can still prefix this route, so its
+    // final path isn't known yet. `list()` warns about duplicates.
     this.#routes.push(route);
     return route;
   }
