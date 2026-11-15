@@ -60,6 +60,76 @@ describe("Router", () => {
       expect(response.body).toBeNull();
     });
 
+    it("answers with the status and headers of the GET route", async () => {
+      const app = new App();
+      app.get(
+        "/accepted",
+        () =>
+          new Response("queued", {
+            status: 202,
+            statusText: "Accepted",
+            headers: { "Content-Type": "text/plain", "X-A": "1" },
+          }),
+      );
+      const handle = app.init();
+
+      const get = await handle(request("/accepted"));
+      const head = await handle(request("/accepted", "HEAD"));
+      expect(head.status).toBe(get.status);
+      expect(head.statusText).toBe(get.statusText);
+      expect([...head.headers]).toEqual([...get.headers]);
+      expect(head.body).toBeNull();
+      expect(await get.text()).toBe("queued");
+    });
+
+    it("cancels the body of the GET route", async () => {
+      const cancel = vi.fn();
+      const app = new App();
+      app.get(
+        "/stream",
+        () => new Response(new ReadableStream({ pull() {}, cancel })),
+      );
+
+      const response = await app.init()(request("/stream", "HEAD"));
+      expect(response.body).toBeNull();
+      await vi.waitFor(() => expect(cancel).toHaveBeenCalled());
+    });
+
+    it("runs the middleware of the GET route", async () => {
+      const seen: string[] = [];
+      const app = new App();
+      app.use(async (ctx, next) => {
+        seen.push(`app ${ctx.request.method}`);
+        return await next();
+      });
+      app
+        .get("/guarded", () => new Response("guarded"))
+        .use(async (ctx, next) => {
+          seen.push(`route ${ctx.request.method}`);
+          const response = await next();
+          response.headers.set("X-Route", "1");
+          return response;
+        });
+      app
+        .group("/api", [app.get("/a", () => new Response("a"))])
+        .use(async (ctx, next) => {
+          seen.push(`group ${ctx.request.method}`);
+          return await next();
+        });
+      const handle = app.init();
+
+      const response = await handle(request("/guarded", "HEAD"));
+      expect(response.headers.get("x-route")).toBe("1");
+      expect(response.body).toBeNull();
+      await handle(request("/api/a", "HEAD"));
+      expect(seen).toEqual([
+        "app HEAD",
+        "route HEAD",
+        "app HEAD",
+        "group HEAD",
+      ]);
+    });
+
     it("prefers a HEAD route", async () => {
       const response = await app()(request("/explicit", "HEAD"));
       expect(response.headers.get("x-b")).toBe("2");
