@@ -27,5 +27,7 @@ bun bun.mjs
 
 rm -rf node_modules package.json bun.lock .npmrc
 # Deno resolves subpaths such as @huuma/route/utils/environment itself.
-echo "{ \"imports\": { \"@huuma/route\": \"jsr:@huuma/route@$version\" } }" > deno.json
+# Deno skips versions published in the last 24 hours by default, which
+# includes the version this script tests right after publishing it.
+echo "{ \"imports\": { \"@huuma/route\": \"jsr:@huuma/route@$version\" }, \"minimumDependencyAge\": 0 }" > deno.json
 deno run --allow-net=127.0.0.1 --allow-env=HUUMA_ENV,HUUMA_LOG_LEVEL deno.mjs
