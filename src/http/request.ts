@@ -1,6 +1,7 @@
 import type { AppContext } from "../app.ts";
 import type { ProtocolConnectionInfo, ProtocolPlatform } from "../protocol.ts";
 import { error } from "../utils/logger.ts";
+import { BadRequestException } from "./exceptions/bad-request-exception.ts";
 import type { HttpMethod } from "./http-method.ts";
 import type { Route } from "./route.ts";
 
@@ -157,5 +158,29 @@ export function getUrlParams<T extends AppContext>(
   route: Route<T>,
   request: Request,
 ): UrlParams | undefined {
-  return route.path.exec(request.url)?.pathname?.groups;
+  const groups = route.path.exec(request.url)?.pathname?.groups;
+  return groups && decodeUrlParams(groups, path(request));
+}
+
+/**
+ * Decodes the percent-encoded values of a route match, such as `caf%C3%A9`
+ * to `café`. An optional parameter that didn't match stays `undefined`.
+ * Throws a `BadRequestException` for a malformed escape sequence.
+ */
+export function decodeUrlParams(
+  params: UrlParams,
+  pathname: string,
+): UrlParams {
+  const decoded: UrlParams = {};
+  for (const [name, value] of Object.entries(params)) {
+    try {
+      decoded[name] =
+        value === undefined ? undefined : decodeURIComponent(value);
+    } catch {
+      throw new BadRequestException(
+        `The path "${pathname}" has a malformed escape sequence`,
+      );
+    }
+  }
+  return decoded;
 }

@@ -257,6 +257,8 @@ app.get("/users/:id", (ctx) => {
 });
 ```
 
+Route parameters are decoded once, like query parameters: for `/blog/:slug`, `/blog/caf%C3%A9` gives `"café"` and `/blog/50%25` gives `"50%"`, so don't decode them again. An encoded slash stays in its parameter (`/blog/a%2Fb` gives `"a/b"`). A path with a malformed escape, such as `/blog/%E0%A4%A`, answers `400`. An optional parameter that didn't match is `undefined`.
+
 `ctx.env` holds the platform bindings, such as the Cloudflare Workers `env` (`{}` on other runtimes). Type it through the `Env` key of the app context. `ctx.waitUntil(promise)` keeps work running after the response: it forwards to `ctx.waitUntil` on Workers, and elsewhere lets the promise run and logs a rejection.
 
 ```typescript
