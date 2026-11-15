@@ -171,7 +171,7 @@ export function decodeUrlParams(
   params: UrlParams,
   pathname: string,
 ): UrlParams {
-  const decoded: UrlParams = {};
+  const decoded: UrlParams = Object.create(null);
   for (const [name, value] of Object.entries(params)) {
     try {
       decoded[name] =

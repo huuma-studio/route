@@ -100,6 +100,20 @@ describe("Router", () => {
       );
     });
 
+    it("keeps a parameter named __proto__", async () => {
+      const app = new App();
+      app.get("/p/:__proto__", (ctx) =>
+        Response.json({
+          has: Object.hasOwn(ctx.params ?? {}, "__proto__"),
+          params: ctx.params,
+        }),
+      );
+      const response = await app.init()(request("/p/a%20b"));
+      expect(await response.text()).toBe(
+        '{"has":true,"params":{"__proto__":"a b"}}',
+      );
+    });
+
     it("decodes the parameters of a HEAD request on a GET route", async () => {
       const seen: unknown[] = [];
       const app = new App();
