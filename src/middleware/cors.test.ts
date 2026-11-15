@@ -62,6 +62,12 @@ describe("Cors", () => {
     );
   });
 
+  it("rejects credentials with *", () => {
+    expect(() =>
+      Cors({ allowedCorsDomains: [ORIGIN, "*"], allowCredentials: true }),
+    ).toThrow(TypeError);
+  });
+
   it("adds credentials and exposed headers", async () => {
     const response = await corsApp({
       allowedCorsDomains: [ORIGIN],

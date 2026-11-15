@@ -8,7 +8,7 @@ import { isNodeError, readableStream } from "./file-stream.ts";
 
 export type ServeFileOptions = {
   contentType: string;
-  /** Stream the file instead of reading it into memory. */
+  /** Stream the file instead of reading it into memory. Default: true. */
   streaming?: boolean;
   /** `Cache-Control` max-age in seconds, sent in production. */
   maxAge?: number;
@@ -102,7 +102,7 @@ async function respond(
     if (request.method === "HEAD" || length === 0) {
       return new Response(null, { status, headers });
     }
-    if (options.streaming) {
+    if (options.streaming !== false) {
       streaming = true;
       return new Response(
         readableStream(handle, { start, end }).pipeThrough(exactly(length)),

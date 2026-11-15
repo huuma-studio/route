@@ -223,7 +223,7 @@ import { Cors } from "jsr:@huuma/route/middleware/cors";
 
 app.middleware(
   Cors({
-    allowedCorsDomains: ["https://app.example"], // or ["*"]
+    allowedCorsDomains: ["https://app.example"], // or ["*"], without credentials
     allowCredentials: true,
     exposedCorsHeaders: ["X-Total-Count"],
     maxAge: 600,
@@ -258,6 +258,8 @@ app.get("/users/:id", (ctx) => {
   return new Response(`User: ${JSON.stringify(user)}`);
 });
 ```
+
+Route parameters are decoded once, like query parameters: for `/blog/:slug`, `/blog/caf%C3%A9` gives `"café"` and `/blog/50%25` gives `"50%"`, so don't decode them again. An encoded slash stays in its parameter (`/blog/a%2Fb` gives `"a/b"`). A path with a malformed escape, such as `/blog/%E0%A4%A`, answers `400`. An optional parameter that didn't match is `undefined`.
 
 `ctx.env` holds the platform bindings, such as the Cloudflare Workers `env` (`{}` on other runtimes). Type it through the `Env` key of the app context. `ctx.waitUntil(promise)` keeps work running after the response: it forwards to `ctx.waitUntil` on Workers, and elsewhere lets the promise run and logs a rejection.
 
@@ -324,6 +326,10 @@ Favicon("public/favicon.ico", app);
 ```
 
 Files are answered for `GET` and `HEAD` with `ETag` and `Last-Modified` (so revalidation gets `304 Not Modified`) and single byte ranges (`206 Partial Content`). The `ETag` is a hash of the content, computed once per version of a file, so it changes with every change and is the same on every server. Files over 16 MiB get a tag from their metadata instead, which also changes with every change but differs between servers. A file removed after loading answers `404`. Symlinked files and directories are followed; directory loops are skipped.
+
+Hidden files and directories, whose names start with a dot (`.env`, `.git`), aren't served, except `.well-known`. Set `dotfiles: true` to serve them too.
+
+Static files stream by default, so each download does not buffer the entire file in memory. To opt into buffering, pass `enableResponseStreaming: false` to `loadAssets`, `loadStaticFiles`, or `registerStaticFiles`. If a file changes and a stream fails after response headers have been sent, the connection is terminated rather than returning a complete response.
 
 ## Controllers
 

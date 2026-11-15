@@ -64,7 +64,7 @@ async function withEnvironment(
 async function beforeFileHandle(
   file: string,
   method: "read" | "createReadStream",
-  before: () => void,
+  before: (handle: FileHandle) => void,
   fn: () => Promise<void>,
 ): Promise<void> {
   const handle = await open(file);
@@ -76,7 +76,7 @@ async function beforeFileHandle(
 
   const original = prototype[method];
   prototype[method] = function (this: FileHandle, ...args: unknown[]) {
-    before();
+    before(this);
     return original.apply(this, args);
   };
   try {
@@ -127,7 +127,7 @@ function get(app: App, path: string, init?: RequestInit): Promise<Response> {
 }
 
 describe("loadStaticFiles", () => {
-  it("registers files in nested directories", async () => {
+  it("registers and streams files in nested directories by default", async () => {
     await withFixture(async (directory) => {
       const app = await loadStaticFiles(new App(), { directory });
       const streamed = await countStreamedFiles(directory, async () => {
@@ -137,7 +137,7 @@ describe("loadStaticFiles", () => {
           expect(await response.text()).toEqual(content);
         }
       });
-      expect(streamed).toEqual(0);
+      expect(streamed).toEqual(Object.keys(FILES).length);
     });
   });
 
@@ -148,6 +148,115 @@ describe("loadStaticFiles", () => {
       const response = await get(app, "/styles/app.css");
       expect(response.status).toEqual(200);
       expect(await response.text()).toEqual(FILES["css/app.css"]);
+    });
+  });
+
+  describe("hidden files", () => {
+    const HIDDEN: Record<string, string> = {
+      ".env": "SECRET=1",
+      ".git/config": "[core]",
+      "css/.cache": "cached",
+      "css/.private/key.txt": "key",
+      ".well-known/security.txt": "Contact: mailto:security@example.com",
+      ".well-known/.hidden": "hidden",
+    };
+
+    async function withHiddenFiles(
+      fn: (directory: string) => Promise<void>,
+    ): Promise<void> {
+      await withFixture(async (directory) => {
+        for (const [path, content] of Object.entries(HIDDEN)) {
+          const file = join(directory, path);
+          await mkdir(join(file, ".."), { recursive: true });
+          await writeFile(file, content);
+        }
+        await fn(directory);
+      });
+    }
+
+    it("skips files and directories whose names start with a dot", async () => {
+      await withHiddenFiles(async (directory) => {
+        const app = await loadStaticFiles(new App(), { directory });
+        for (const path of [
+          "/.env",
+          "/.git/config",
+          "/css/.cache",
+          "/css/.private/key.txt",
+          "/.well-known/.hidden",
+        ]) {
+          const response = await get(app, path);
+          await response.body?.cancel();
+          expect(response.status, path).toEqual(404);
+        }
+        expect((await get(app, "/css/app.css")).status).toEqual(200);
+      });
+    });
+
+    it("serves .well-known", async () => {
+      await withHiddenFiles(async (directory) => {
+        const app = await loadStaticFiles(new App(), { directory });
+        const response = await get(app, "/.well-known/security.txt");
+        expect(response.status).toEqual(200);
+        expect(await response.text()).toEqual(
+          HIDDEN[".well-known/security.txt"],
+        );
+      });
+    });
+
+    it("skips a hidden path option", async () => {
+      await withHiddenFiles(async (directory) => {
+        for (const [path, file] of [
+          [".git", "/.git/config"],
+          ["css/.private", "/css/.private/key.txt"],
+        ]) {
+          const app = await loadStaticFiles(new App(), { directory, path });
+          const response = await get(app, file);
+          await response.body?.cancel();
+          expect(response.status, path).toEqual(404);
+        }
+      });
+    });
+
+    it("serves a hidden path option with dotfiles: true", async () => {
+      await withHiddenFiles(async (directory) => {
+        const app = await loadStaticFiles(new App(), {
+          directory,
+          path: "css/.private",
+          dotfiles: true,
+        });
+        const response = await get(app, "/css/.private/key.txt");
+        expect(response.status).toEqual(200);
+        expect(await response.text()).toEqual("key");
+      });
+    });
+
+    it("serves .well-known as the path option", async () => {
+      await withHiddenFiles(async (directory) => {
+        const app = await loadStaticFiles(new App(), {
+          directory,
+          path: ".well-known",
+        });
+        const served = await get(app, "/.well-known/security.txt");
+        expect(served.status).toEqual(200);
+        expect(await served.text()).toEqual(HIDDEN[".well-known/security.txt"]);
+        const hidden = await get(app, "/.well-known/.hidden");
+        await hidden.body?.cancel();
+        expect(hidden.status).toEqual(404);
+      });
+    });
+
+    it("serves hidden files with dotfiles: true", async () => {
+      await withHiddenFiles(async (directory) => {
+        const app = await loadStaticFiles(new App(), {
+          directory,
+          dotfiles: true,
+        });
+        for (const [path, content] of Object.entries(HIDDEN)) {
+          const response = await get(app, `/${path}`);
+          expect(response.status, path).toEqual(200);
+          expect(await response.text()).toEqual(content);
+        }
+      });
     });
   });
 
@@ -176,6 +285,69 @@ describe("loadStaticFiles", () => {
         }
       });
       expect(streamed).toEqual(Object.keys(FILES).length);
+    });
+  });
+
+  it("buffers files when response streaming is explicitly disabled", async () => {
+    await withFixture(async (directory) => {
+      const app = await loadStaticFiles(new App(), {
+        directory,
+        enableResponseStreaming: false,
+      });
+      const streamed = await countStreamedFiles(directory, async () => {
+        for (const [path, content] of Object.entries(FILES)) {
+          const response = await get(app, `/${path}`);
+          expect(await response.text()).toEqual(content);
+        }
+      });
+      expect(streamed).toBe(0);
+    });
+  });
+
+  it("streams large files without buffering and closes them on cancellation", async () => {
+    await withFixture(async (directory) => {
+      const file = join(directory, "large.bin");
+      const size = 32 * 1024 * 1024;
+      const fixture = await open(file, "w");
+      await fixture.truncate(size);
+      await fixture.close();
+      const app = registerStaticFiles(new App(), {
+        directory,
+        path: "large.bin",
+      });
+      let opened: FileHandle | undefined;
+      let bufferedReads = 0;
+      await beforeFileHandle(
+        file,
+        "createReadStream",
+        (handle) => {
+          opened = handle;
+        },
+        async () => {
+          await beforeFileHandle(
+            file,
+            "read",
+            () => bufferedReads++,
+            async () => {
+              const response = await get(app, "/large.bin");
+              const reader = response.body!.getReader();
+              try {
+                expect(response.headers.get("Content-Length")).toBe(
+                  String(size),
+                );
+                expect(opened).toBeDefined();
+                expect(bufferedReads).toBe(0);
+                const chunk = await reader.read();
+                expect(chunk.done).toBe(false);
+                expect(chunk.value!.byteLength).toBeLessThan(size);
+              } finally {
+                await reader.cancel();
+              }
+              await vi.waitFor(() => expect(opened?.fd).toBe(-1));
+            },
+          );
+        },
+      );
     });
   });
 
@@ -345,7 +517,7 @@ describe("loadStaticFiles symlinks and errors", () => {
 describe("static file responses", () => {
   async function withApp(
     fn: (app: App, directory: string) => Promise<void>,
-    streaming = false,
+    streaming?: boolean,
   ) {
     await withFixture(async (directory) => {
       await writeFile(join(directory, "digits.txt"), "0123456789");
@@ -471,9 +643,13 @@ describe("static file responses", () => {
       });
       expect(cached.status).toEqual(304);
 
-      // Unhashed files are checked while they are read, too.
+      // Unhashed files are checked while they are buffered, too.
+      const bufferedApp = await loadStaticFiles(new App(), {
+        directory,
+        enableResponseStreaming: false,
+      });
       await withShrinkingFile(file, "read", 1, async () => {
-        const response = await get(app, "/large.bin");
+        const response = await get(bufferedApp, "/large.bin");
         expect(response.headers.get("Content-Length")).toEqual(
           String(size - 1),
         );

@@ -52,12 +52,157 @@ describe("Router", () => {
     expect((await app()(request("/nope"))).status).toBe(404);
   });
 
+  describe("path parameters", () => {
+    function params() {
+      const app = new App();
+      app.get("/blog/:slug", (ctx) => Response.json(ctx.params));
+      app.get("/docs/:rest*", (ctx) => Response.json(ctx.params));
+      app.get("/posts/:id?", (ctx) =>
+        Response.json({
+          has: Object.hasOwn(ctx.params ?? {}, "id"),
+          id: ctx.params?.id === undefined ? "undefined" : ctx.params.id,
+        }),
+      );
+      return app.init();
+    }
+
+    it.each([
+      ["/blog/caf%C3%A9", "café"],
+      ["/blog/café", "café"],
+      ["/blog/a%20b", "a b"],
+      ["/blog/%E0%A4%B9%E0%A4%BF", "हि"],
+      ["/blog/a%2Fb", "a/b"],
+    ])("decodes %s", async (path, slug) => {
+      const response = await params()(request(path));
+      expect(await response.json()).toEqual({ slug });
+    });
+
+    it("decodes once", async () => {
+      const response = await params()(request("/blog/50%25"));
+      expect(await response.json()).toEqual({ slug: "50%" });
+    });
+
+    it("decodes a catch-all parameter and keeps its separators", async () => {
+      const response = await params()(request("/docs/a%20b/c"));
+      expect(await response.json()).toEqual({ rest: "a b/c" });
+    });
+
+    it("keeps an optional parameter that didn't match undefined", async () => {
+      const response = await params()(request("/posts"));
+      expect(await response.json()).toEqual({ has: true, id: "undefined" });
+    });
+
+    it("answers a malformed escape with 400", async () => {
+      const response = await params()(request("/blog/%E0%A4%A"));
+      expect(response.status).toBe(400);
+      expect((await response.json()).message).toBe(
+        'The path "/blog/%E0%A4%A" has a malformed escape sequence',
+      );
+    });
+
+    it("keeps a parameter named __proto__", async () => {
+      const app = new App();
+      app.get("/p/:__proto__", (ctx) =>
+        Response.json({
+          has: Object.hasOwn(ctx.params ?? {}, "__proto__"),
+          params: ctx.params,
+        }),
+      );
+      const response = await app.init()(request("/p/a%20b"));
+      expect(await response.text()).toBe(
+        '{"has":true,"params":{"__proto__":"a b"}}',
+      );
+    });
+
+    it("decodes the parameters of a HEAD request on a GET route", async () => {
+      const seen: unknown[] = [];
+      const app = new App();
+      app.get("/blog/:slug", (ctx) => {
+        seen.push(ctx.params);
+        return new Response("ok");
+      });
+      const response = await app.init()(request("/blog/a%20b", "HEAD"));
+      expect(response.status).toBe(200);
+      expect(seen).toEqual([{ slug: "a b" }]);
+    });
+  });
+
   describe("HEAD", () => {
     it("falls back to the GET route without the body", async () => {
       const response = await app()(request("/users", "HEAD"));
       expect(response.status).toBe(200);
       expect(response.headers.get("x-a")).toBe("1");
       expect(response.body).toBeNull();
+    });
+
+    it("answers with the status and headers of the GET route", async () => {
+      const app = new App();
+      app.get(
+        "/accepted",
+        () =>
+          new Response("queued", {
+            status: 202,
+            statusText: "Accepted",
+            headers: { "Content-Type": "text/plain", "X-A": "1" },
+          }),
+      );
+      const handle = app.init();
+
+      const get = await handle(request("/accepted"));
+      const head = await handle(request("/accepted", "HEAD"));
+      expect(head.status).toBe(get.status);
+      expect(head.statusText).toBe(get.statusText);
+      expect([...head.headers]).toEqual([...get.headers]);
+      expect(head.body).toBeNull();
+      expect(await get.text()).toBe("queued");
+    });
+
+    it("cancels the body of the GET route", async () => {
+      const cancel = vi.fn();
+      const app = new App();
+      app.get(
+        "/stream",
+        () => new Response(new ReadableStream({ pull() {}, cancel })),
+      );
+
+      const response = await app.init()(request("/stream", "HEAD"));
+      expect(response.body).toBeNull();
+      await vi.waitFor(() => expect(cancel).toHaveBeenCalled());
+    });
+
+    it("runs the middleware of the GET route", async () => {
+      const seen: string[] = [];
+      const app = new App();
+      app.use(async (ctx, next) => {
+        seen.push(`app ${ctx.request.method}`);
+        return await next();
+      });
+      app
+        .get("/guarded", () => new Response("guarded"))
+        .use(async (ctx, next) => {
+          seen.push(`route ${ctx.request.method}`);
+          const response = await next();
+          response.headers.set("X-Route", "1");
+          return response;
+        });
+      app
+        .group("/api", [app.get("/a", () => new Response("a"))])
+        .use(async (ctx, next) => {
+          seen.push(`group ${ctx.request.method}`);
+          return await next();
+        });
+      const handle = app.init();
+
+      const response = await handle(request("/guarded", "HEAD"));
+      expect(response.headers.get("x-route")).toBe("1");
+      expect(response.body).toBeNull();
+      await handle(request("/api/a", "HEAD"));
+      expect(seen).toEqual([
+        "app HEAD",
+        "route HEAD",
+        "app HEAD",
+        "group HEAD",
+      ]);
     });
 
     it("prefers a HEAD route", async () => {
@@ -111,11 +256,16 @@ describe("Router", () => {
   });
 
   describe("duplicates", () => {
-    it("rejects the same method and path twice", () => {
+    it("warns about the same method and path twice and keeps the first", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       const app = new App();
-      app.get("/a", () => new Response());
-      expect(() => app.get("/a", () => new Response())).toThrow(
-        "Route for GET /a already exists",
+      app.get("/a", () => new Response("first"));
+      app.get("/a", () => new Response("second"));
+      const handle = app.init();
+
+      expect(await (await handle(request("/a"))).text()).toBe("first");
+      expect(warn.mock.calls.flat().join(" ")).toContain(
+        "GET /a is registered twice",
       );
     });
 
@@ -126,10 +276,37 @@ describe("Router", () => {
       app.group("/api", [app.get("/a", () => new Response("second"))]);
       const handle = app.init();
 
+      expect(await (await handle(request("/api/a"))).text()).toBe("first");
       expect(warn.mock.calls.flat().join(" ")).toContain(
         "GET /api/a is registered twice",
       );
-      expect(await (await handle(request("/api/a"))).text()).toBe("first");
+    });
+
+    it("allows a grouped route with the path of a route outside the group", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const app = new App();
+      app.get("/users", () => new Response("top"));
+      app.group("/api", [app.get("/users", () => new Response("api"))]);
+      const handle = app.init();
+
+      expect(await (await handle(request("/users"))).text()).toBe("top");
+      expect(await (await handle(request("/api/users"))).text()).toBe("api");
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("warns about duplicates added by APPLICATION_INIT listeners", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const app = new App();
+      app.get("/a", () => new Response("first"));
+      app.on("application:init", (app) => {
+        app.get("/a", () => new Response("second"));
+      });
+      const handle = app.init();
+
+      expect(await (await handle(request("/a"))).text()).toBe("first");
+      expect(warn.mock.calls.flat().join(" ")).toContain(
+        "GET /a is registered twice",
+      );
     });
   });
 });
