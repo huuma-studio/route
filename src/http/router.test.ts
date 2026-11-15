@@ -52,6 +52,81 @@ describe("Router", () => {
     expect((await app()(request("/nope"))).status).toBe(404);
   });
 
+  describe("path parameters", () => {
+    function params() {
+      const app = new App();
+      app.get("/blog/:slug", (ctx) => Response.json(ctx.params));
+      app.get("/docs/:rest*", (ctx) => Response.json(ctx.params));
+      app.get("/posts/:id?", (ctx) =>
+        Response.json({
+          has: Object.hasOwn(ctx.params ?? {}, "id"),
+          id: ctx.params?.id === undefined ? "undefined" : ctx.params.id,
+        }),
+      );
+      return app.init();
+    }
+
+    it.each([
+      ["/blog/caf%C3%A9", "café"],
+      ["/blog/café", "café"],
+      ["/blog/a%20b", "a b"],
+      ["/blog/%E0%A4%B9%E0%A4%BF", "हि"],
+      ["/blog/a%2Fb", "a/b"],
+    ])("decodes %s", async (path, slug) => {
+      const response = await params()(request(path));
+      expect(await response.json()).toEqual({ slug });
+    });
+
+    it("decodes once", async () => {
+      const response = await params()(request("/blog/50%25"));
+      expect(await response.json()).toEqual({ slug: "50%" });
+    });
+
+    it("decodes a catch-all parameter and keeps its separators", async () => {
+      const response = await params()(request("/docs/a%20b/c"));
+      expect(await response.json()).toEqual({ rest: "a b/c" });
+    });
+
+    it("keeps an optional parameter that didn't match undefined", async () => {
+      const response = await params()(request("/posts"));
+      expect(await response.json()).toEqual({ has: true, id: "undefined" });
+    });
+
+    it("answers a malformed escape with 400", async () => {
+      const response = await params()(request("/blog/%E0%A4%A"));
+      expect(response.status).toBe(400);
+      expect((await response.json()).message).toBe(
+        'The path "/blog/%E0%A4%A" has a malformed escape sequence',
+      );
+    });
+
+    it("keeps a parameter named __proto__", async () => {
+      const app = new App();
+      app.get("/p/:__proto__", (ctx) =>
+        Response.json({
+          has: Object.hasOwn(ctx.params ?? {}, "__proto__"),
+          params: ctx.params,
+        }),
+      );
+      const response = await app.init()(request("/p/a%20b"));
+      expect(await response.text()).toBe(
+        '{"has":true,"params":{"__proto__":"a b"}}',
+      );
+    });
+
+    it("decodes the parameters of a HEAD request on a GET route", async () => {
+      const seen: unknown[] = [];
+      const app = new App();
+      app.get("/blog/:slug", (ctx) => {
+        seen.push(ctx.params);
+        return new Response("ok");
+      });
+      const response = await app.init()(request("/blog/a%20b", "HEAD"));
+      expect(response.status).toBe(200);
+      expect(seen).toEqual([{ slug: "a b" }]);
+    });
+  });
+
   describe("HEAD", () => {
     it("falls back to the GET route without the body", async () => {
       const response = await app()(request("/users", "HEAD"));

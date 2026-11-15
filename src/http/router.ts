@@ -7,6 +7,7 @@ import { HttpMethod } from "./http-method.ts";
 import {
   type ControllerConstructor,
   type ControllerProperty,
+  decodeUrlParams,
   type Handler,
   method,
   type RequestContext,
@@ -105,7 +106,8 @@ export class Router<T extends AppContext> {
       );
     }
 
-    ctx.params = match.params;
+    // URLPattern keeps the escapes, so `/blog/caf%C3%A9` gives `caf%C3%A9`.
+    ctx.params = match.params && decodeUrlParams(match.params, pathname);
 
     return handle(ctx, match.route.chain, match.route.handler);
   };
