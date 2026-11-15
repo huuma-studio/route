@@ -59,6 +59,16 @@ await server.shutdown(); // or pass an AbortSignal as `signal`
 
 `shutdown()` stops accepting new connections and gives active requests 30 seconds to finish before forcibly closing remaining connections. Configure the grace period with `serve(app, { shutdownTimeout: 5_000 })`, or use `0` for no grace period. Aborting the server's `signal` uses the same deadline. Forced closure aborts affected requests' signals and cancels their streamed responses; application work should observe `request.signal` to stop promptly. The deadline applies to connections, not arbitrary application promises or background work.
 
+`shutdown()` resolves with `{ forced }`, which is `true` when the deadline had to close connections that were still open, and `false` when every request finished in time (idle keep-alive connections don't count). `server.finished` resolves with the same result, also when the `signal` shut the server down, and repeated `shutdown()` calls share it. Use it to report requests that were cut off:
+
+```typescript
+const { forced } = await server.shutdown();
+if (forced) {
+  console.warn("Shutdown deadline closed active requests");
+  process.exitCode = 1;
+}
+```
+
 `Deno.serve(app.init())` and `app.handle(request, connection)` keep working.
 
 Behind a reverse proxy or load balancer that terminates TLS, Node.js only sees plain HTTP, so `request.url` and redirects built from it would use `http`. Set `trustProxy` to take the scheme from `X-Forwarded-Proto` instead. Enable it only behind such a proxy, because clients can send the header too:
